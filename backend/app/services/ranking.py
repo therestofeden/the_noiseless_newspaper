@@ -3,16 +3,25 @@ Ranking service - the core algorithm combining all signals.
 
 This is where the magic happens:
 1. Citation-based PageRank score (cold start)
-2. Recency score (time decay)
+2. Recency score (rewards fresh content)
 3. Topic relevance (embedding similarity)
 4. User votes weighted by time period (1 week < 1 month < 1 year)
+5. Predicted survival score (ML model trained on collective wisdom)
 
 The key insight: votes cast after longer periods carry more weight
-because they reflect enduring relevance, not hype.
+because they reflect enduring relevance, not hype. The system LEARNS
+from these delayed votes to predict which NEW articles will survive.
+
+The Learning Loop:
+    1. Show fresh articles to users
+    2. Collect time-delayed votes (1 week, 1 month, 1 year)
+    3. Train ML model to predict survival from article features
+    4. Use predictions to rank new articles (before votes exist)
+    5. As votes accumulate, transition from predictions to actual votes
 """
 import math
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from sqlalchemy import func, select
@@ -24,21 +33,37 @@ from app.models.domain import Article, ArticleRanking, TopicPath, VotePeriod
 from app.services.citation_graph import CitationGraphService
 from app.services.embeddings import EmbeddingService, TopicEmbeddingService
 
+# Lazy import to avoid circular dependency
+if TYPE_CHECKING:
+    from app.services.survival_model import SurvivalModelManager
+
 
 class RankingService:
     """
     Main ranking service that combines all signals into a final score.
 
-    The ranking formula:
-        FinalScore = w_c * CitationScore
-                   + w_r * RecencyScore
+    The ranking formula evolves based on data availability:
+
+    NEW ARTICLES (no votes):
+        FinalScore = w_r * RecencyScore
                    + w_t * TopicRelevanceScore
-                   + w_v * UserVoteScore
+                   + w_p * PredictedSurvivalScore  # ML model prediction!
 
-    Where weights are configurable and sum to 1.0.
+    ARTICLES WITH VOTES:
+        FinalScore = w_r * RecencyScore
+                   + w_t * TopicRelevanceScore
+                   + (1-λ) * PredictedSurvivalScore
+                   + λ * ActualVoteScore
 
-    As an article accumulates more votes, we gradually shift weight
-    from citation-based scoring to vote-based scoring (λ transition).
+    Where λ = sigmoid(total_votes / threshold)
+
+    As votes accumulate:
+        λ → 1, meaning we trust actual votes over predictions.
+
+    The ML model learns from collective wisdom:
+        - What article features predict high 1-year votes?
+        - Which sources produce "survivors"?
+        - What early signals (1-week votes) predict 1-year value?
     """
 
     def __init__(
@@ -46,11 +71,13 @@ class RankingService:
         citation_service: CitationGraphService,
         embedding_service: EmbeddingService,
         topic_embedding_service: TopicEmbeddingService,
+        survival_model_manager: Optional["SurvivalModelManager"] = None,
     ):
         self.settings = get_settings()
         self.citation_service = citation_service
         self.embedding_service = embedding_service
         self.topic_embedding_service = topic_embedding_service
+        self.survival_model_manager = survival_model_manager
 
     def compute_recency_score(
         self,
@@ -177,32 +204,60 @@ class RankingService:
         article: Article,
         target_topic: TopicPath,
         vote_stats: Optional[dict] = None,
+        session: Optional[AsyncSession] = None,
     ) -> ArticleRanking:
         """
         Compute the full ranking for a single article.
+
+        The ranking combines multiple signals with adaptive weighting:
+
+        1. RECENCY: Fresh content is prioritized (exponential decay)
+        2. TOPIC RELEVANCE: How well does it match user's interest?
+        3. PREDICTED SURVIVAL: ML model predicts lasting value
+        4. ACTUAL VOTES: Time-weighted user feedback (when available)
+
+        As votes accumulate, we transition from predicted to actual:
+            λ = sigmoid(total_votes / threshold)
+            quality_score = (1-λ) * predicted + λ * actual_votes
 
         Args:
             article: The article to rank
             target_topic: The topic the user is interested in
             vote_stats: Pre-computed vote statistics (optional)
+            session: Database session for survival prediction
 
         Returns:
             ArticleRanking with score breakdown
         """
-        # 1. Citation score (PageRank)
-        citation_score = self.citation_service.get_score(article.id)
-        if citation_score == 0 and article.citation_count > 0:
-            # Fallback: use log-normalized citation count
-            citation_score = math.log1p(article.citation_count) / 10
-
-        # 2. Recency score
+        # 1. Recency score - rewards fresh content
         recency_score = self.compute_recency_score(article.published_at)
 
-        # 3. Topic relevance
+        # 2. Topic relevance - semantic similarity to user's interest
         article_text = f"{article.title} {article.abstract or ''}"
         topic_relevance = await self.compute_topic_relevance(article_text, target_topic)
 
-        # 4. User vote score
+        # 3. Predicted survival score - ML model's prediction of lasting value
+        # This is the key innovation: we LEARN what predicts long-term value
+        predicted_survival = 0.5  # Default: uncertain
+        if self.survival_model_manager and session:
+            try:
+                predicted_survival = await self.survival_model_manager.predict(
+                    article, session
+                )
+            except Exception:
+                # Fall back to citation-based heuristic
+                citation_score = self.citation_service.get_score(article.id)
+                if citation_score == 0 and article.citation_count > 0:
+                    citation_score = math.log1p(article.citation_count) / 10
+                predicted_survival = min(0.3 + citation_score * 0.7, 1.0)
+        else:
+            # No ML model available - use citation heuristic
+            citation_score = self.citation_service.get_score(article.id)
+            if citation_score == 0 and article.citation_count > 0:
+                citation_score = math.log1p(article.citation_count) / 10
+            predicted_survival = min(0.3 + citation_score * 0.7, 1.0)
+
+        # 4. Actual vote score - ground truth from users (when available)
         if vote_stats:
             user_vote_score = self.compute_vote_score(
                 vote_stats.get("votes_1_week", 0),
@@ -221,40 +276,48 @@ class RankingService:
             user_vote_score = 0.0
             total_votes = 0
 
-        # Compute λ (transition from citations to votes)
+        # Compute λ (transition from prediction to actual votes)
+        # λ = 0: rely entirely on predicted survival
+        # λ = 1: rely entirely on actual votes
         lambda_factor = self.compute_lambda(total_votes)
 
+        # Blend predicted and actual quality scores
+        # This is where "wisdom of the crowd" kicks in:
+        # - New articles: trust the ML model (trained on past collective wisdom)
+        # - Voted articles: trust actual user feedback
+        quality_score = (1 - lambda_factor) * predicted_survival + lambda_factor * user_vote_score
+
         # Base weights from config
-        w_citation = self.settings.weight_citation_score
         w_recency = self.settings.weight_recency
         w_topic = self.settings.weight_topic_relevance
-        w_votes = self.settings.weight_user_votes
-
-        # Adjust weights based on λ
-        # As λ increases, shift weight from citations to votes
-        adjusted_w_citation = w_citation * (1 - lambda_factor * 0.5)
-        adjusted_w_votes = w_votes + (w_citation * lambda_factor * 0.5)
+        w_quality = 1.0 - w_recency - w_topic  # Remainder goes to quality
 
         # Compute final score
+        # Fresh + Relevant + High Quality = Top Rank
         final_score = (
-            adjusted_w_citation * citation_score
-            + w_recency * recency_score
+            w_recency * recency_score
             + w_topic * topic_relevance
-            + adjusted_w_votes * user_vote_score
+            + w_quality * quality_score
         )
 
-        # Build explanation
+        # Build explanation for transparency
+        if lambda_factor < 0.5:
+            quality_source = "predicted"
+        else:
+            quality_source = "voted"
+
         explanation_parts = [
-            f"Citation: {citation_score:.3f} (w={adjusted_w_citation:.2f})",
             f"Recency: {recency_score:.3f} (w={w_recency:.2f})",
             f"Topic: {topic_relevance:.3f} (w={w_topic:.2f})",
-            f"Votes: {user_vote_score:.3f} (w={adjusted_w_votes:.2f}, λ={lambda_factor:.2f})",
+            f"Quality: {quality_score:.3f} (w={w_quality:.2f}, {quality_source})",
+            f"  └─ Predicted: {predicted_survival:.3f}",
+            f"  └─ Votes: {user_vote_score:.3f} (n={total_votes}, λ={lambda_factor:.2f})",
         ]
 
         return ArticleRanking(
             article=article,
             rank=0,  # Set later when sorting
-            citation_score=citation_score,
+            citation_score=predicted_survival,  # Repurpose field for predicted survival
             recency_score=recency_score,
             topic_relevance_score=topic_relevance,
             user_vote_score=user_vote_score,
@@ -268,15 +331,29 @@ class RankingService:
         target_topic: TopicPath,
         session: AsyncSession,
         limit: int = 10,
+        use_exploration: bool = False,
+        exploration_epsilon: float = 0.1,
     ) -> list[ArticleRanking]:
         """
         Rank a list of articles for a specific topic.
+
+        The ranking process:
+        1. Fetch vote statistics for all articles
+        2. Compute scores (recency + topic + predicted/actual quality)
+        3. Sort by final score
+        4. Optionally apply exploration (show uncertain articles)
+
+        Exploration is important for learning:
+        - Exploitation: always show highest-scored articles
+        - Exploration: occasionally show uncertain articles to gather data
 
         Args:
             articles: Articles to rank
             target_topic: The topic the user is interested in
             session: Database session for fetching vote stats
             limit: Maximum number of results to return
+            use_exploration: Whether to apply exploration strategy
+            exploration_epsilon: Probability of exploration (0-1)
 
         Returns:
             List of ArticleRanking objects, sorted by score descending
@@ -289,11 +366,28 @@ class RankingService:
         rankings = []
         for article in articles:
             vote_stats = vote_stats_map.get(article.id)
-            ranking = await self.rank_article(article, target_topic, vote_stats)
+            ranking = await self.rank_article(article, target_topic, vote_stats, session)
             rankings.append(ranking)
 
         # Sort by final score descending
         rankings.sort(key=lambda r: r.final_score, reverse=True)
+
+        # Apply exploration if enabled
+        if use_exploration and len(rankings) > 1:
+            import random
+            if random.random() < exploration_epsilon:
+                # Exploration: boost a random uncertain article
+                # Uncertain = low vote count + mid-range prediction
+                uncertain_candidates = [
+                    (i, r) for i, r in enumerate(rankings)
+                    if r.user_vote_score == 0  # No votes yet
+                    and 0.3 <= r.citation_score <= 0.7  # Uncertain prediction
+                ]
+                if uncertain_candidates:
+                    # Move one uncertain article to top
+                    idx, uncertain_ranking = random.choice(uncertain_candidates)
+                    rankings.pop(idx)
+                    rankings.insert(0, uncertain_ranking)
 
         # Assign ranks
         for i, ranking in enumerate(rankings):
