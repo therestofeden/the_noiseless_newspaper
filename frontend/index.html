@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Noiseless Newspaper</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .slide-in { animation: slideIn 0.2s ease-out; }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    // ============================================
+    // COMPREHENSIVE 3-LEVEL TOPIC TAXONOMY
+    // ============================================
+    const topicTaxonomy = {
+      'ai-ml': {
+        id: 'ai-ml',
+        name: 'AI & Machine Learning',
+        icon: '🤖',
+        description: 'Artificial intelligence, deep learning, and computational intelligence',
+        subtopics: {
+          'llms': {
+            id: 'llms',
+            name: 'Large Language Models',
+            niches: {
+              'interpretability': { id: 'interpretability', name: 'Interpretability & Alignment' },
+              'architectures': { id: 'architectures', name: 'Model Architectures' },
+              'scaling': { id: 'scaling', name: 'Scaling Laws & Training' },
+              'applications': { id: 'applications', name: 'Applications & Deployment' }
+            }
+          },
+          'computer-vision': {
+            id: 'computer-vision',
+            name: 'Computer Vision',
+            niches: {
+              'generative': { id: 'generative', name: 'Generative Models (Diffusion, GANs)' },
+              'detection': { id: 'detection', name: 'Object Detection & Segmentation' },
+              'video': { id: 'video', name: 'Video Understanding' }
+            }
+          },
+          'reinforcement': {
+            id: 'reinforcement',
+            name: 'Reinforcement Learning',
+            niches: {
+              'robotics': { id: 'robotics', name: 'Robotics & Control' },
+              'games': { id: 'games', name: 'Game Playing & Strategy' },
+              'multi-agent': { id: 'multi-agent', name: 'Multi-Agent Systems' }
+            }
+          },
+          'ml-theory': {
+            id: 'ml-theory',
+            name: 'ML Theory & Foundations',
+            niches: {
+              'optimization': { id: 'optimization', name: 'Optimization & Generalization' },
+              'causality': { id: 'causality', name: 'Causal Inference' },
+              'fairness': { id: 'fairness', name: 'Fairness & Robustness' }
+            }
+          }
+        }
+      },
+      'physics': {
+        id: 'physics',
+        name: 'Physics',
+        icon: '⚛️',
+        description: 'Fundamental physics, condensed matter, and theoretical advances',
+        subtopics: {
+          'complexity': {
+            id: 'complexity',
+            name: 'Complexity Science',
+            niches: {
+              'networks': { id: 'networks', name: 'Network Theory' },
+              'emergence': { id: 'emergence', name: 'Emergence & Self-Organization' },
+              'chaos': { id: 'chaos', name: 'Chaos & Dynamical Systems' },
+              'info-theory': { id: 'info-theory', name: 'Information Theory' }
+            }
+          },
+          'quantum': {
+            id: 'quantum',
+            name: 'Quantum Physics',
+            niches: {
+              'computing': { id: 'computing', name: 'Quantum Computing' },
+              'foundations': { id: 'foundations', name: 'Quantum Foundations' },
+              'materials': { id: 'materials', name: 'Quantum Materials' }
+            }
+          },
+          'condensed': {
+            id: 'condensed',
+            name: 'Condensed Matter',
+            niches: {
+              'superconductivity': { id: 'superconductivity', name: 'Superconductivity' },
+              'topological': { id: 'topological', name: 'Topological Phases' },
+              'soft-matter': { id: 'soft-matter', name: 'Soft Matter & Polymers' }
+            }
+          },
+          'astro': {
+            id: 'astro',
+            name: 'Astrophysics & Cosmology',
+            niches: {
+              'exoplanets': { id: 'exoplanets', name: 'Exoplanets' },
+              'dark-matter': { id: 'dark-matter', name: 'Dark Matter & Energy' },
+              'gravitational': { id: 'gravitational', name: 'Gravitational Waves' }
+            }
+          }
+        }
+      },
+      'biotech': {
+        id: 'biotech',
+        name: 'Biotechnology',
+        icon: '🧬',
+        description: 'Genetic engineering, drug discovery, and biological systems',
+        subtopics: {
+          'gene-editing': {
+            id: 'gene-editing',
+            name: 'Gene Editing & Therapy',
+            niches: {
+              'crispr': { id: 'crispr', name: 'CRISPR & Base Editing' },
+              'gene-therapy': { id: 'gene-therapy', name: 'Gene Therapy Trials' },
+              'epigenetics': { id: 'epigenetics', name: 'Epigenetics' }
+            }
+          },
+          'drug-discovery': {
+            id: 'drug-discovery',
+            name: 'Drug Discovery',
+            niches: {
+              'ai-pharma': { id: 'ai-pharma', name: 'AI in Pharma' },
+              'clinical-trials': { id: 'clinical-trials', name: 'Clinical Trials' },
+              'small-molecules': { id: 'small-molecules', name: 'Small Molecules' }
+            }
+          },
+          'synbio': {
+            id: 'synbio',
+            name: 'Synthetic Biology',
+            niches: {
+              'metabolic': { id: 'metabolic', name: 'Metabolic Engineering' },
+              'cell-free': { id: 'cell-free', name: 'Cell-Free Systems' },
+              'biofuels': { id: 'biofuels', name: 'Biofuels & Biomaterials' }
+            }
+          },
+          'neuro': {
+            id: 'neuro',
+            name: 'Neuroscience',
+            niches: {
+              'brain-computer': { id: 'brain-computer', name: 'Brain-Computer Interfaces' },
+              'connectomics': { id: 'connectomics', name: 'Connectomics' },
+              'neurodegeneration': { id: 'neurodegeneration', name: 'Neurodegeneration' }
+            }
+          }
+        }
+      },
+      'economics': {
+        id: 'economics',
+        name: 'Economics & Finance',
+        icon: '📈',
+        description: 'Markets, policy, and economic theory',
+        subtopics: {
+          'macro': {
+            id: 'macro',
+            name: 'Macroeconomics',
+            niches: {
+              'monetary': { id: 'monetary', name: 'Monetary Policy & Central Banks' },
+              'fiscal': { id: 'fiscal', name: 'Fiscal Policy & Debt' },
+              'trade': { id: 'trade', name: 'International Trade' }
+            }
+          },
+          'markets': {
+            id: 'markets',
+            name: 'Financial Markets',
+            niches: {
+              'equities': { id: 'equities', name: 'Equity Markets' },
+              'crypto': { id: 'crypto', name: 'Crypto & Digital Assets' },
+              'derivatives': { id: 'derivatives', name: 'Derivatives & Risk' }
+            }
+          },
+          'behavioral': {
+            id: 'behavioral',
+            name: 'Behavioral Economics',
+            niches: {
+              'decision-making': { id: 'decision-making', name: 'Decision Making' },
+              'nudges': { id: 'nudges', name: 'Nudges & Policy Design' },
+              'experiments': { id: 'experiments', name: 'Economic Experiments' }
+            }
+          },
+          'development': {
+            id: 'development',
+            name: 'Development Economics',
+            niches: {
+              'poverty': { id: 'poverty', name: 'Poverty & Inequality' },
+              'institutions': { id: 'institutions', name: 'Institutions & Growth' },
+              'rcts': { id: 'rcts', name: 'RCTs & Impact Evaluation' }
+            }
+          }
+        }
+      },
+      'politics': {
+        id: 'politics',
+        name: 'Politics & Geopolitics',
+        icon: '🌍',
+        description: 'Political analysis, international relations, and governance',
+        subtopics: {
+          'geopolitics': {
+            id: 'geopolitics',
+            name: 'Geopolitics',
+            niches: {
+              'us-china': { id: 'us-china', name: 'US-China Relations' },
+              'europe': { id: 'europe', name: 'European Union' },
+              'emerging': { id: 'emerging', name: 'Emerging Powers' }
+            }
+          },
+          'domestic': {
+            id: 'domestic',
+            name: 'Domestic Politics',
+            niches: {
+              'elections': { id: 'elections', name: 'Elections & Voting' },
+              'polarization': { id: 'polarization', name: 'Polarization & Media' },
+              'policy': { id: 'policy', name: 'Policy Analysis' }
+            }
+          },
+          'governance': {
+            id: 'governance',
+            name: 'Governance & Institutions',
+            niches: {
+              'democracy': { id: 'democracy', name: 'Democratic Institutions' },
+              'tech-regulation': { id: 'tech-regulation', name: 'Tech Regulation' },
+              'international-law': { id: 'international-law', name: 'International Law' }
+            }
+          },
+          'security': {
+            id: 'security',
+            name: 'Security & Defense',
+            niches: {
+              'cyber': { id: 'cyber', name: 'Cybersecurity' },
+              'military': { id: 'military', name: 'Military Strategy' },
+              'terrorism': { id: 'terrorism', name: 'Terrorism & Counterterrorism' }
+            }
+          }
+        }
+      }
+    };
+
+    // Sample articles mapped to taxonomy
+    const sampleArticles = {
+      'ai-ml/llms/interpretability': {
+        title: "Sparse Autoencoders Reveal Hidden Structure in Large Language Models",
+        source: "arXiv", citations: 847, date: "2026-01-28",
+        summary: "Researchers demonstrate that sparse autoencoders can decompose neural network activations into interpretable features, revealing how language models organize knowledge internally."
+      },
+      'ai-ml/llms/scaling': {
+        title: "Chinchilla-2: Optimal Compute Allocation Revisited for 10T Parameter Models",
+        source: "DeepMind", citations: 1203, date: "2026-01-27",
+        summary: "New scaling laws show diminishing returns beyond 5T parameters without architectural innovations, suggesting a shift toward mixture-of-experts and retrieval augmentation."
+      },
+      'physics/complexity/networks': {
+        title: "Universal Scaling in Temporal Networks Reveals Hidden Social Dynamics",
+        source: "Nature Physics", citations: 432, date: "2026-01-26",
+        summary: "Analysis of 50 million interactions shows temporal networks follow universal scaling laws that predict cascade failures and viral spread with unprecedented accuracy."
+      },
+      'physics/complexity/emergence': {
+        title: "Self-Organized Criticality in Neural Networks Explains Generalization",
+        source: "Physical Review X", citations: 289, date: "2026-01-25",
+        summary: "Deep networks naturally evolve toward critical states during training, and this criticality directly correlates with generalization performance."
+      },
+      'physics/quantum/computing': {
+        title: "1000-Qubit Error-Corrected Quantum Computer Achieves Fault Tolerance",
+        source: "IBM Research", citations: 2341, date: "2026-01-24",
+        summary: "Milestone demonstration of fault-tolerant quantum computation using surface codes, running Shor's algorithm on a 128-bit integer."
+      },
+      'biotech/gene-editing/crispr': {
+        title: "CRISPR-Based Gene Therapy Shows 94% Efficacy in Sickle Cell Treatment",
+        source: "Nature Medicine", citations: 1567, date: "2026-01-28",
+        summary: "Landmark clinical trial demonstrates near-complete elimination of sickle cell crises over 3-year follow-up. One-time treatment modifies patients' own stem cells."
+      },
+      'biotech/neuro/brain-computer': {
+        title: "Neuralink Competitor Achieves 10,000 Channel Recording in Human Trials",
+        source: "Science", citations: 892, date: "2026-01-27",
+        summary: "Synchron's new electrode array enables unprecedented resolution in brain-computer interfaces, allowing paralyzed patients to control robotic arms with fine motor precision."
+      },
+      'economics/macro/monetary': {
+        title: "Central Banks Coordinate on Digital Currency Interoperability Standard",
+        source: "BIS Working Papers", citations: 312, date: "2026-01-26",
+        summary: "The Bank for International Settlements publishes framework enabling cross-border CBDC transactions across 47 participating nations."
+      },
+      'economics/behavioral/decision-making': {
+        title: "Meta-Analysis of 500 Nudge Interventions Reveals Long-Term Decay Patterns",
+        source: "Journal of Political Economy", citations: 445, date: "2026-01-25",
+        summary: "Comprehensive study shows most behavioral interventions lose 60% effectiveness within 6 months, but certain 'habit-forming' nudges persist indefinitely."
+      },
+      'politics/geopolitics/us-china': {
+        title: "Taiwan Semiconductor Announces Arizona Fab Expansion Amid Tensions",
+        source: "Foreign Affairs", citations: 234, date: "2026-01-28",
+        summary: "TSMC's $40B investment signals strategic decoupling acceleration. Analysis of supply chain implications for global chip markets."
+      },
+      'politics/governance/tech-regulation': {
+        title: "EU AI Act Enforcement Begins: First Major Fines Expected Q2",
+        source: "The Economist", citations: 156, date: "2026-01-27",
+        summary: "Regulatory bodies gear up for enforcement of world's first comprehensive AI legislation. Companies scramble to demonstrate compliance."
+      }
+    };
+
+    // ============================================
+    // MAIN APP COMPONENT
+    // ============================================
+    function NoiselessNewspaper() {
+      // App state
+      const [screen, setScreen] = useState('landing');
+      const [userPreferences, setUserPreferences] = useState(() => {
+        const saved = localStorage.getItem('noiseless-preferences');
+        return saved ? JSON.parse(saved) : {
+          selectedTopics: [], // Array of full paths: ['ai-ml/llms/interpretability', ...]
+          topicFrequencies: {}, // { 'ai-ml/llms': 'high' | 'medium' | 'low' }
+          clickHistory: [], // [{ path, timestamp, articleId }, ...]
+          votes: {} // { articleId: { score, period } }
+        };
+      });
+      const [currentArticle, setCurrentArticle] = useState(null);
+      const [showAlgorithm, setShowAlgorithm] = useState(false);
+      const [algorithmMode, setAlgorithmMode] = useState('simple');
+      const [timeSimulation, setTimeSimulation] = useState(null);
+      const [votingQueue, setVotingQueue] = useState([]);
+      const [dailySuggestions, setDailySuggestions] = useState([]);
+
+      // Persist preferences
+      useEffect(() => {
+        localStorage.setItem('noiseless-preferences', JSON.stringify(userPreferences));
+      }, [userPreferences]);
+
+      // Generate smart suggestions based on click history
+      useEffect(() => {
+        if (screen === 'daily-choice' && userPreferences.selectedTopics.length > 0) {
+          const suggestions = generateSmartSuggestions(userPreferences);
+          setDailySuggestions(suggestions);
+        }
+      }, [screen, userPreferences]);
+
+      // Time simulation effect
+      useEffect(() => {
+        if (timeSimulation && currentArticle) {
+          const timer = setTimeout(() => {
+            setVotingQueue([{ ...currentArticle, period: timeSimulation }]);
+            setTimeSimulation(null);
+          }, 1500);
+          return () => clearTimeout(timer);
+        }
+      }, [timeSimulation, currentArticle]);
+
+      const generateSmartSuggestions = (prefs) => {
+        const { selectedTopics, clickHistory, topicFrequencies } = prefs;
+
+        // Score each topic based on click history and frequency preference
+        const topicScores = {};
+        selectedTopics.forEach(path => {
+          const parentPath = path.split('/').slice(0, 2).join('/');
+          const clicks = clickHistory.filter(c => c.path.startsWith(parentPath)).length;
+          const frequency = topicFrequencies[parentPath] || 'medium';
+          const freqMultiplier = frequency === 'high' ? 1.5 : frequency === 'low' ? 0.5 : 1;
+          topicScores[path] = (clicks + 1) * freqMultiplier + Math.random() * 0.5;
+        });
+
+        // Sort and take top 4 suggestions
+        const sorted = Object.entries(topicScores)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 4)
+          .map(([path]) => path);
+
+        return sorted;
+      };
+
+      const handleTopicSelect = (path) => {
+        // Record click
+        setUserPreferences(prev => ({
+          ...prev,
+          clickHistory: [
+            { path, timestamp: Date.now() },
+            ...prev.clickHistory.slice(0, 99) // Keep last 100 clicks
+          ]
+        }));
+
+        // Find article for this path
+        const article = sampleArticles[path] || sampleArticles[Object.keys(sampleArticles)[0]];
+        setCurrentArticle({ ...article, path });
+        setScreen('article');
+      };
+
+      const handleVote = (score) => {
+        if (!votingQueue[0]) return;
+
+        setUserPreferences(prev => ({
+          ...prev,
+          votes: {
+            ...prev.votes,
+            [votingQueue[0].path]: { score, period: votingQueue[0].period, timestamp: Date.now() }
+          }
+        }));
+        setVotingQueue([]);
+      };
+
+      const updateSelectedTopics = (topics) => {
+        setUserPreferences(prev => ({ ...prev, selectedTopics: topics }));
+      };
+
+      const updateTopicFrequency = (path, frequency) => {
+        setUserPreferences(prev => ({
+          ...prev,
+          topicFrequencies: { ...prev.topicFrequencies, [path]: frequency }
+        }));
+      };
+
+      // Render screens
+      if (screen === 'landing') {
+        return (
+          <LandingScreen
+            onStart={() => setScreen(userPreferences.selectedTopics.length > 0 ? 'daily-choice' : 'onboarding')}
+            onShowAlgorithm={() => setShowAlgorithm(true)}
+            hasExistingPrefs={userPreferences.selectedTopics.length > 0}
+            showAlgorithm={showAlgorithm}
+            algorithmMode={algorithmMode}
+            setAlgorithmMode={setAlgorithmMode}
+            onCloseAlgorithm={() => setShowAlgorithm(false)}
+          />
+        );
+      }
+
+      if (screen === 'onboarding') {
+        return (
+          <OnboardingScreen
+            taxonomy={topicTaxonomy}
+            selectedTopics={userPreferences.selectedTopics}
+            topicFrequencies={userPreferences.topicFrequencies}
+            onUpdateTopics={updateSelectedTopics}
+            onUpdateFrequency={updateTopicFrequency}
+            onComplete={() => setScreen('daily-choice')}
+            onBack={() => setScreen('landing')}
+          />
+        );
+      }
+
+      if (screen === 'daily-choice') {
+        return (
+          <DailyChoiceScreen
+            taxonomy={topicTaxonomy}
+            suggestions={dailySuggestions}
+            preferences={userPreferences}
+            onSelectTopic={handleTopicSelect}
+            onEditPreferences={() => setScreen('onboarding')}
+            onShowAlgorithm={() => setShowAlgorithm(true)}
+            onBack={() => setScreen('landing')}
+            showAlgorithm={showAlgorithm}
+            algorithmMode={algorithmMode}
+            setAlgorithmMode={setAlgorithmMode}
+            onCloseAlgorithm={() => setShowAlgorithm(false)}
+          />
+        );
+      }
+
+      if (screen === 'article') {
+        return (
+          <ArticleScreen
+            article={currentArticle}
+            taxonomy={topicTaxonomy}
+            onTimeSimulation={setTimeSimulation}
+            timeSimulation={timeSimulation}
+            votingQueue={votingQueue}
+            onVote={handleVote}
+            onCloseVoting={() => setVotingQueue([])}
+            onBack={() => setScreen('daily-choice')}
+            onShowAlgorithm={() => setShowAlgorithm(true)}
+            onShowTimeline={() => setScreen('timeline')}
+            showAlgorithm={showAlgorithm}
+            algorithmMode={algorithmMode}
+            setAlgorithmMode={setAlgorithmMode}
+            onCloseAlgorithm={() => setShowAlgorithm(false)}
+          />
+        );
+      }
+
+      if (screen === 'timeline') {
+        return (
+          <TimelineScreen
+            preferences={userPreferences}
+            taxonomy={topicTaxonomy}
+            onBack={() => setScreen('article')}
+            onHome={() => setScreen('landing')}
+          />
+        );
+      }
+
+      return null;
+    }
+
+    // ============================================
+    // LANDING SCREEN
+    // ============================================
+    function LandingScreen({ onStart, onShowAlgorithm, hasExistingPrefs, showAlgorithm, algorithmMode, setAlgorithmMode, onCloseAlgorithm }) {
+      return (
+        <div className="min-h-screen bg-stone-50 flex flex-col">
+          <nav className="p-6 flex justify-between items-center max-w-5xl mx-auto w-full">
+            <div className="text-xl font-light tracking-wide text-stone-800">The Noiseless Newspaper</div>
+            <button onClick={onStart} className="text-sm text-stone-600 hover:text-stone-900 transition-colors">
+              {hasExistingPrefs ? 'Continue' : 'Sign in'}
+            </button>
+          </nav>
+
+          <main className="flex-1 flex flex-col items-center justify-center px-6 -mt-20">
+            <div className="max-w-2xl text-center space-y-8">
+              <h1 className="text-5xl md:text-6xl font-light text-stone-900 leading-tight">
+                Less <span className="text-stone-400 line-through decoration-1">(noise)</span> is More.
+              </h1>
+
+              <p className="text-xl text-stone-600 font-light leading-relaxed max-w-lg mx-auto">
+                One article per day. Chosen by what matters over time, not what trends right now.
+              </p>
+
+              <div className="pt-4">
+                <button
+                  onClick={onStart}
+                  className="px-8 py-4 bg-stone-900 text-white rounded-full text-lg font-light hover:bg-stone-800 transition-all hover:shadow-lg"
+                >
+                  {hasExistingPrefs ? 'Continue reading' : 'Begin your quiet reading'}
+                </button>
+              </div>
+
+              <button
+                onClick={onShowAlgorithm}
+                className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-4 decoration-stone-300"
+              >
+                How does it work?
+              </button>
+            </div>
+          </main>
+
+          <footer className="p-6 text-center text-stone-400 text-sm">
+            Signal survives time.
+          </footer>
+
+          {showAlgorithm && (
+            <AlgorithmExplainer mode={algorithmMode} setMode={setAlgorithmMode} onClose={onCloseAlgorithm} />
+          )}
+        </div>
+      );
+    }
+
+    // ============================================
+    // ONBOARDING SCREEN (Progressive Disclosure)
+    // ============================================
+    function OnboardingScreen({ taxonomy, selectedTopics, topicFrequencies, onUpdateTopics, onUpdateFrequency, onComplete, onBack }) {
+      const [expandedCategories, setExpandedCategories] = useState({});
+      const [expandedSubtopics, setExpandedSubtopics] = useState({});
+      const [showFrequencyFor, setShowFrequencyFor] = useState(null);
+
+      const toggleCategory = (catId) => {
+        setExpandedCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
+      };
+
+      const toggleSubtopic = (subId) => {
+        setExpandedSubtopics(prev => ({ ...prev, [subId]: !prev[subId] }));
+      };
+
+      const toggleTopic = (path) => {
+        const newTopics = selectedTopics.includes(path)
+          ? selectedTopics.filter(t => t !== path)
+          : [...selectedTopics, path];
+        onUpdateTopics(newTopics);
+      };
+
+      const isSelected = (path) => selectedTopics.some(t => t.startsWith(path));
+      const isExactlySelected = (path) => selectedTopics.includes(path);
+
+      const getSelectionCount = (catId) => {
+        return selectedTopics.filter(t => t.startsWith(catId)).length;
+      };
+
+      return (
+        <div className="min-h-screen bg-stone-50">
+          <nav className="p-6 flex justify-between items-center max-w-4xl mx-auto">
+            <button onClick={onBack} className="text-xl font-light tracking-wide text-stone-800">
+              The Noiseless Newspaper
+            </button>
+          </nav>
+
+          <main className="max-w-4xl mx-auto px-6 py-8">
+            <div className="space-y-8">
+              <header className="text-center space-y-3">
+                <h2 className="text-3xl font-light text-stone-900">Build your reading profile</h2>
+                <p className="text-stone-600 max-w-lg mx-auto">
+                  Expand categories to find your specific interests. The more precise you are,
+                  the better we can find signal in the noise.
+                </p>
+              </header>
+
+              <div className="space-y-3">
+                {Object.values(taxonomy).map(category => (
+                  <div key={category.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                    {/* Category Header */}
+                    <button
+                      onClick={() => toggleCategory(category.id)}
+                      className="w-full p-4 flex items-center gap-4 hover:bg-stone-50 transition-colors"
+                    >
+                      <span className="text-2xl">{category.icon}</span>
+                      <div className="flex-1 text-left">
+                        <div className="font-medium text-stone-800">{category.name}</div>
+                        <div className="text-sm text-stone-500">{category.description}</div>
+                      </div>
+                      {getSelectionCount(category.id) > 0 && (
+                        <span className="px-2 py-1 bg-stone-900 text-white text-xs rounded-full">
+                          {getSelectionCount(category.id)} selected
+                        </span>
+                      )}
+                      <span className={`text-stone-400 transition-transform ${expandedCategories[category.id] ? 'rotate-90' : ''}`}>
+                        →
+                      </span>
+                    </button>
+
+                    {/* Subtopics */}
+                    {expandedCategories[category.id] && (
+                      <div className="border-t border-stone-100 bg-stone-50 p-4 space-y-2 fade-in">
+                        {Object.values(category.subtopics).map(subtopic => (
+                          <div key={subtopic.id} className="bg-white rounded-lg border border-stone-200">
+                            {/* Subtopic Header */}
+                            <div className="flex items-center">
+                              <button
+                                onClick={() => toggleSubtopic(`${category.id}/${subtopic.id}`)}
+                                className="flex-1 p-3 flex items-center gap-3 hover:bg-stone-50 transition-colors text-left"
+                              >
+                                <span className={`w-5 text-stone-400 transition-transform ${expandedSubtopics[`${category.id}/${subtopic.id}`] ? 'rotate-90' : ''}`}>
+                                  →
+                                </span>
+                                <span className="font-medium text-stone-700">{subtopic.name}</span>
+                                {selectedTopics.filter(t => t.startsWith(`${category.id}/${subtopic.id}`)).length > 0 && (
+                                  <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs rounded-full">
+                                    {selectedTopics.filter(t => t.startsWith(`${category.id}/${subtopic.id}`)).length}
+                                  </span>
+                                )}
+                              </button>
+
+                              {/* Frequency selector */}
+                              {selectedTopics.some(t => t.startsWith(`${category.id}/${subtopic.id}`)) && (
+                                <div className="pr-3">
+                                  <select
+                                    value={topicFrequencies[`${category.id}/${subtopic.id}`] || 'medium'}
+                                    onChange={(e) => onUpdateFrequency(`${category.id}/${subtopic.id}`, e.target.value)}
+                                    className="text-xs px-2 py-1 bg-stone-100 rounded border-0 text-stone-600"
+                                  >
+                                    <option value="high">High priority</option>
+                                    <option value="medium">Normal</option>
+                                    <option value="low">Occasional</option>
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Niches */}
+                            {expandedSubtopics[`${category.id}/${subtopic.id}`] && (
+                              <div className="border-t border-stone-100 p-3 pl-10 space-y-2 slide-in">
+                                {Object.values(subtopic.niches).map(niche => {
+                                  const path = `${category.id}/${subtopic.id}/${niche.id}`;
+                                  return (
+                                    <button
+                                      key={niche.id}
+                                      onClick={() => toggleTopic(path)}
+                                      className={`w-full p-2 rounded-lg text-left text-sm transition-all flex items-center gap-2 ${
+                                        isExactlySelected(path)
+                                          ? 'bg-stone-900 text-white'
+                                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                                      }`}
+                                    >
+                                      <span className={`w-4 h-4 rounded border flex items-center justify-center ${
+                                        isExactlySelected(path) ? 'bg-white border-white' : 'border-stone-300'
+                                      }`}>
+                                        {isExactlySelected(path) && <span className="text-stone-900 text-xs">✓</span>}
+                                      </span>
+                                      {niche.name}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary & Continue */}
+              <div className="sticky bottom-0 bg-stone-50 pt-4 pb-6 border-t border-stone-200 -mx-6 px-6">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-stone-600">
+                    {selectedTopics.length === 0 ? (
+                      'Select at least one topic to continue'
+                    ) : (
+                      `${selectedTopics.length} topic${selectedTopics.length > 1 ? 's' : ''} selected`
+                    )}
+                  </div>
+                  <button
+                    onClick={onComplete}
+                    disabled={selectedTopics.length === 0}
+                    className={`px-6 py-3 rounded-full transition-all ${
+                      selectedTopics.length > 0
+                        ? 'bg-stone-900 text-white hover:bg-stone-800'
+                        : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // ============================================
+    // DAILY CHOICE SCREEN (Smart Suggestions)
+    // ============================================
+    function DailyChoiceScreen({ taxonomy, suggestions, preferences, onSelectTopic, onEditPreferences, onShowAlgorithm, onBack, showAlgorithm, algorithmMode, setAlgorithmMode, onCloseAlgorithm }) {
+
+      const getTopicDisplay = (path) => {
+        const parts = path.split('/');
+        const cat = taxonomy[parts[0]];
+        const sub = cat?.subtopics[parts[1]];
+        const niche = sub?.niches[parts[2]];
+        return {
+          icon: cat?.icon || '📄',
+          category: cat?.name || '',
+          subtopic: sub?.name || '',
+          niche: niche?.name || '',
+          full: `${sub?.name}: ${niche?.name}`
+        };
+      };
+
+      const getFrequencyLabel = (path) => {
+        const parentPath = path.split('/').slice(0, 2).join('/');
+        const freq = preferences.topicFrequencies[parentPath];
+        if (freq === 'high') return '★ High priority';
+        if (freq === 'low') return 'Occasional';
+        return null;
+      };
+
+      const recentClicks = preferences.clickHistory.slice(0, 3);
+      const hasRecentHistory = recentClicks.length > 0;
+
+      return (
+        <div className="min-h-screen bg-stone-50">
+          <nav className="p-6 flex justify-between items-center max-w-3xl mx-auto">
+            <button onClick={onBack} className="text-xl font-light tracking-wide text-stone-800">
+              The Noiseless Newspaper
+            </button>
+            <div className="flex gap-4">
+              <button onClick={onShowAlgorithm} className="text-sm text-stone-500 hover:text-stone-700">
+                How it works
+              </button>
+              <button onClick={onEditPreferences} className="text-sm text-stone-500 hover:text-stone-700">
+                Edit interests
+              </button>
+            </div>
+          </nav>
+
+          <main className="max-w-3xl mx-auto px-6 py-8">
+            <div className="space-y-8">
+              <header className="text-center space-y-2">
+                <p className="text-stone-500 text-sm uppercase tracking-wider">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                </p>
+                <h2 className="text-3xl font-light text-stone-900">
+                  {hasRecentHistory ? 'Based on your reading...' : 'What would you like to read about today?'}
+                </h2>
+                {hasRecentHistory && (
+                  <p className="text-stone-600 text-sm">
+                    We've learned from your choices. Here are today's suggestions.
+                  </p>
+                )}
+              </header>
+
+              {/* Smart Suggestions */}
+              <div className="space-y-3">
+                {suggestions.map((path, idx) => {
+                  const display = getTopicDisplay(path);
+                  const freqLabel = getFrequencyLabel(path);
+                  const isTopPick = idx === 0 && hasRecentHistory;
+
+                  return (
+                    <button
+                      key={path}
+                      onClick={() => onSelectTopic(path)}
+                      className={`w-full p-5 rounded-xl border transition-all text-left flex items-center gap-4 group ${
+                        isTopPick
+                          ? 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'
+                          : 'bg-white border-stone-200 hover:border-stone-400'
+                      }`}
+                    >
+                      <span className="text-3xl">{display.icon}</span>
+                      <div className="flex-1">
+                        <div className={`font-medium ${isTopPick ? 'text-white' : 'text-stone-800'}`}>
+                          {display.full}
+                        </div>
+                        <div className={`text-sm ${isTopPick ? 'text-stone-300' : 'text-stone-500'}`}>
+                          {display.category}
+                          {freqLabel && <span className="ml-2">• {freqLabel}</span>}
+                        </div>
+                      </div>
+                      {isTopPick && (
+                        <span className="px-2 py-1 bg-white/20 rounded text-xs">
+                          Top pick
+                        </span>
+                      )}
+                      <span className={`${isTopPick ? 'text-white/60' : 'text-stone-400'} group-hover:translate-x-1 transition-transform`}>
+                        →
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Browse all topics */}
+              <div className="text-center">
+                <button
+                  onClick={onEditPreferences}
+                  className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-4"
+                >
+                  Browse all topics
+                </button>
+              </div>
+
+              <p className="text-stone-400 text-sm text-center">
+                One choice. One article. That's all for today.
+              </p>
+            </div>
+          </main>
+
+          {showAlgorithm && (
+            <AlgorithmExplainer mode={algorithmMode} setMode={setAlgorithmMode} onClose={onCloseAlgorithm} />
+          )}
+        </div>
+      );
+    }
+
+    // ============================================
+    // ARTICLE SCREEN
+    // ============================================
+    function ArticleScreen({ article, taxonomy, onTimeSimulation, timeSimulation, votingQueue, onVote, onCloseVoting, onBack, onShowAlgorithm, onShowTimeline, showAlgorithm, algorithmMode, setAlgorithmMode, onCloseAlgorithm }) {
+
+      const getTopicDisplay = (path) => {
+        if (!path) return { icon: '📄', category: '', subtopic: '', niche: '' };
+        const parts = path.split('/');
+        const cat = taxonomy[parts[0]];
+        const sub = cat?.subtopics[parts[1]];
+        const niche = sub?.niches[parts[2]];
+        return {
+          icon: cat?.icon || '📄',
+          category: cat?.name || '',
+          subtopic: sub?.name || '',
+          niche: niche?.name || ''
+        };
+      };
+
+      const display = getTopicDisplay(article?.path);
+
+      return (
+        <div className="min-h-screen bg-stone-50">
+          <nav className="p-6 flex justify-between items-center max-w-3xl mx-auto">
+            <button onClick={() => window.location.reload()} className="text-xl font-light tracking-wide text-stone-800">
+              The Noiseless Newspaper
+            </button>
+            <div className="flex gap-4">
+              <button onClick={onShowAlgorithm} className="text-sm text-stone-500 hover:text-stone-700">
+                How it works
+              </button>
+              <button onClick={onShowTimeline} className="text-sm text-stone-500 hover:text-stone-700">
+                My Timeline
+              </button>
+            </div>
+          </nav>
+
+          <main className="max-w-3xl mx-auto px-6 py-8">
+            <article className="space-y-8">
+              <header className="space-y-4">
+                <div className="flex items-center gap-2 text-sm text-stone-500 flex-wrap">
+                  <span className="text-xl">{display.icon}</span>
+                  <span className="px-3 py-1 bg-stone-200 rounded-full">{display.niche}</span>
+                  <span className="text-stone-400">in</span>
+                  <span>{display.subtopic}</span>
+                  <span>•</span>
+                  <span>{article?.source}</span>
+                  <span>•</span>
+                  <span>{article?.date}</span>
+                </div>
+
+                <h1 className="text-3xl md:text-4xl font-light text-stone-900 leading-snug">
+                  {article?.title}
+                </h1>
+
+                <div className="flex items-center gap-4 text-sm text-stone-600">
+                  <div className="flex items-center gap-1">
+                    <span>📚</span>
+                    <span>{article?.citations} citations</span>
+                  </div>
+                </div>
+              </header>
+
+              <div className="prose prose-stone prose-lg max-w-none">
+                <p className="text-xl leading-relaxed text-stone-700">
+                  {article?.summary}
+                </p>
+              </div>
+
+              <div className="pt-4 space-y-4">
+                <a
+                  href="#"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-all"
+                >
+                  Read full article
+                  <span>↗</span>
+                </a>
+
+                <p className="text-stone-500 text-sm">
+                  We'll ask you about this article's relevance in 1 week, 1 month, and 1 year.
+                </p>
+              </div>
+
+              {/* Time Simulation */}
+              <div className="mt-12 p-6 bg-white rounded-xl border border-stone-200">
+                <h3 className="text-lg font-medium text-stone-800 mb-4">⏱ Demo: Simulate Time Passing</h3>
+                <p className="text-stone-600 text-sm mb-4">
+                  In the real app, you'd receive notifications at these intervals. Click to simulate:
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {['1 week', '1 month', '1 year'].map(period => (
+                    <button
+                      key={period}
+                      onClick={() => onTimeSimulation(period)}
+                      disabled={timeSimulation}
+                      className="px-4 py-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-sm transition-all disabled:opacity-50"
+                    >
+                      {timeSimulation === period ? '⏳ Loading...' : `Fast-forward ${period} →`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </article>
+          </main>
+
+          {/* Voting Modal */}
+          {votingQueue.length > 0 && (
+            <VotingModal article={votingQueue[0]} onVote={onVote} onClose={onCloseVoting} />
+          )}
+
+          {showAlgorithm && (
+            <AlgorithmExplainer mode={algorithmMode} setMode={setAlgorithmMode} onClose={onCloseAlgorithm} />
+          )}
+        </div>
+      );
+    }
+
+    // ============================================
+    // TIMELINE SCREEN
+    // ============================================
+    function TimelineScreen({ preferences, taxonomy, onBack, onHome }) {
+      const { votes, clickHistory } = preferences;
+
+      const getTopicDisplay = (path) => {
+        if (!path) return { niche: 'Unknown' };
+        const parts = path.split('/');
+        const cat = taxonomy[parts[0]];
+        const sub = cat?.subtopics[parts[1]];
+        const niche = sub?.niches[parts[2]];
+        return { niche: niche?.name || 'Unknown', icon: cat?.icon || '📄' };
+      };
+
+      const voteEntries = Object.entries(votes).map(([path, data]) => ({
+        path,
+        ...data,
+        display: getTopicDisplay(path)
+      }));
+
+      const signalScore = voteEntries.length > 0
+        ? Math.round((voteEntries.reduce((sum, v) => sum + v.score, 0) / (voteEntries.length * 5)) * 100)
+        : 0;
+
+      return (
+        <div className="min-h-screen bg-stone-50">
+          <nav className="p-6 flex justify-between items-center max-w-3xl mx-auto">
+            <button onClick={onHome} className="text-xl font-light tracking-wide text-stone-800">
+              The Noiseless Newspaper
+            </button>
+            <button onClick={onBack} className="text-sm text-stone-500 hover:text-stone-700">
+              ← Back
+            </button>
+          </nav>
+
+          <main className="max-w-3xl mx-auto px-6 py-8">
+            <div className="space-y-8">
+              <header className="space-y-2">
+                <h2 className="text-3xl font-light text-stone-900">Your Reading Timeline</h2>
+                <p className="text-stone-600">See how your past articles have held up over time.</p>
+              </header>
+
+              {voteEntries.length > 0 ? (
+                <div className="space-y-4">
+                  {voteEntries.map((vote, idx) => (
+                    <div key={idx} className={`p-5 bg-white rounded-xl border ${vote.score >= 4 ? 'border-green-200 bg-green-50' : 'border-stone-200'}`}>
+                      <div className="flex justify-between items-start flex-wrap gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span>{vote.display.icon}</span>
+                            <h3 className="font-medium text-stone-800">{vote.display.niche}</h3>
+                          </div>
+                          <p className="text-sm text-stone-500">Voted after {vote.period}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-stone-500">Your vote:</span>
+                            <span className={`font-medium ${vote.score >= 4 ? 'text-green-600' : ''}`}>{vote.score}/5</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-stone-500">
+                  <p>No votes yet. Read articles and vote on their relevance over time.</p>
+                </div>
+              )}
+
+              <div className="p-6 bg-stone-100 rounded-xl">
+                <h3 className="font-medium text-stone-800 mb-2">Your Signal Score</h3>
+                <p className="text-stone-600 text-sm">
+                  Based on how well your votes predict long-term relevance.
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="h-2 flex-1 bg-stone-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-stone-700 rounded-full transition-all" style={{ width: `${signalScore}%` }}></div>
+                  </div>
+                  <span className="text-stone-700 font-medium">{signalScore}%</span>
+                </div>
+              </div>
+
+              {/* Click history */}
+              {clickHistory.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-medium text-stone-800">Recent Reading</h3>
+                  <div className="space-y-2">
+                    {clickHistory.slice(0, 10).map((click, idx) => {
+                      const display = getTopicDisplay(click.path);
+                      return (
+                        <div key={idx} className="p-3 bg-white rounded-lg border border-stone-200 flex items-center gap-3">
+                          <span>{display.icon}</span>
+                          <span className="text-sm text-stone-700">{display.niche}</span>
+                          <span className="text-xs text-stone-400 ml-auto">
+                            {new Date(click.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // ============================================
+    // VOTING MODAL
+    // ============================================
+    function VotingModal({ article, onVote, onClose }) {
+      const [hoveredScore, setHoveredScore] = useState(0);
+      const [selectedScore, setSelectedScore] = useState(0);
+
+      return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-8 space-y-6 fade-in">
+            <div className="text-center space-y-2">
+              <p className="text-sm text-stone-500 uppercase tracking-wider">{article.period} later...</p>
+              <h3 className="text-2xl font-light text-stone-900">How relevant was this article?</h3>
+            </div>
+
+            <div className="p-4 bg-stone-50 rounded-xl">
+              <p className="text-stone-700 font-medium">{article.title}</p>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm text-stone-600 text-center">Looking back, how important does this feel now?</p>
+              <div className="flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map(score => (
+                  <button
+                    key={score}
+                    onMouseEnter={() => setHoveredScore(score)}
+                    onMouseLeave={() => setHoveredScore(0)}
+                    onClick={() => setSelectedScore(score)}
+                    className={`w-12 h-12 rounded-full border-2 transition-all text-lg ${
+                      (hoveredScore || selectedScore) >= score
+                        ? 'border-stone-900 bg-stone-900 text-white'
+                        : 'border-stone-300 text-stone-400 hover:border-stone-400'
+                    }`}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-between text-xs text-stone-400 px-1">
+                <span>Noise</span>
+                <span>Signal</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 py-3 border border-stone-200 rounded-full text-stone-600 hover:bg-stone-50 transition-all">
+                Skip
+              </button>
+              <button
+                onClick={() => selectedScore && onVote(selectedScore)}
+                disabled={!selectedScore}
+                className={`flex-1 py-3 rounded-full transition-all ${
+                  selectedScore ? 'bg-stone-900 text-white hover:bg-stone-800' : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                }`}
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================
+    // ALGORITHM EXPLAINER
+    // ============================================
+    function AlgorithmExplainer({ mode, setMode, onClose }) {
+      return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl font-light text-stone-900">How The Algorithm Works</h2>
+              <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-2xl leading-none">×</button>
+            </div>
+
+            <div className="flex gap-2 mb-8">
+              <button
+                onClick={() => setMode('simple')}
+                className={`px-4 py-2 rounded-full text-sm transition-all ${mode === 'simple' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}
+              >
+                Simple Explanation
+              </button>
+              <button
+                onClick={() => setMode('technical')}
+                className={`px-4 py-2 rounded-full text-sm transition-all ${mode === 'technical' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}
+              >
+                Technical Details
+              </button>
+            </div>
+
+            {mode === 'simple' ? (
+              <div className="space-y-8">
+                <div className="relative h-48 bg-stone-50 rounded-xl overflow-hidden flex items-center justify-center">
+                  <svg viewBox="0 0 400 150" className="w-full h-full">
+                    <line x1="200" y1="75" x2="80" y2="40" stroke="#d6d3d1" strokeWidth="2" />
+                    <line x1="200" y1="75" x2="320" y2="40" stroke="#d6d3d1" strokeWidth="2" />
+                    <line x1="200" y1="75" x2="120" y2="120" stroke="#d6d3d1" strokeWidth="2" />
+                    <line x1="200" y1="75" x2="280" y2="120" stroke="#d6d3d1" strokeWidth="2" />
+                    <circle cx="200" cy="75" r="20" fill="#292524" />
+                    <text x="200" y="80" textAnchor="middle" fill="white" fontSize="9">Today</text>
+                    <circle cx="80" cy="40" r="14" fill="#78716c" />
+                    <circle cx="320" cy="40" r="16" fill="#78716c" />
+                    <circle cx="120" cy="120" r="12" fill="#a8a29e" />
+                    <circle cx="280" cy="120" r="18" fill="#57534e" />
+                  </svg>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <div className="text-3xl">📚</div>
+                    <h3 className="font-medium text-stone-800">Citations First</h3>
+                    <p className="text-sm text-stone-600">New articles start with a score based on academic citations. Think of it like peer credibility.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-3xl">⏳</div>
+                    <h3 className="font-medium text-stone-800">Time-Tested Votes</h3>
+                    <p className="text-sm text-stone-600">Your votes at 1 week, 1 month, and 1 year tell us what actually mattered. Later votes count more.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-3xl">🎯</div>
+                    <h3 className="font-medium text-stone-800">Signal Finds Signal</h3>
+                    <p className="text-sm text-stone-600">If your votes predict long-term value, your future votes carry more weight.</p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-amber-800 text-sm"><strong>The core insight:</strong> What feels important today often isn't. We optimize for what you'll still care about in a year.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 text-sm">
+                <div className="space-y-4">
+                  <h3 className="font-medium text-stone-800">Cold Start: Citation-Based Ranking</h3>
+                  <div className="bg-stone-100 p-4 rounded-lg font-mono text-xs overflow-x-auto">
+                    <pre className="whitespace-pre-wrap">{`InitialScore(article) =
+  α × CitationCount + β × CitationVelocity + γ × SourceAuthority
+
+where: α=0.4, β=0.35, γ=0.25`}</pre>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-stone-800">Time-Decay Voting Function</h3>
+                  <div className="bg-stone-100 p-4 rounded-lg font-mono text-xs overflow-x-auto">
+                    <pre className="whitespace-pre-wrap">{`TimeWeight = { 1 week: 0.15, 1 month: 0.35, 1 year: 0.50 }
+
+RelevanceScore = Σ(vote × TimeWeight × UserCredibility)`}</pre>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-stone-800 text-stone-100 rounded-xl">
+                  <h4 className="font-medium mb-2">Key Properties</h4>
+                  <ul className="space-y-1 text-stone-300 text-xs">
+                    <li>• Resistant to hype cycles</li>
+                    <li>• Self-correcting via delayed voting</li>
+                    <li>• Sybil-resistant via credibility weighting</li>
+                    <li>• Graceful cold-start handling</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            <button onClick={onClose} className="w-full mt-8 py-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-all">
+              Got it
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================
+    // RENDER
+    // ============================================
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<NoiselessNewspaper />);
+  </script>
+</body>
+</html>
