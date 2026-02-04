@@ -1,371 +1,312 @@
 """
 Citation graph service using NetworkX for PageRank computation.
-
-Builds a directed graph from article citations and computes
-PageRank scores to measure article importance in the citation network.
+This is the core of the cold-start ranking algorithm.
 """
-
-from typing import Sequence
-from uuid import UUID
+import asyncio
+from datetime import datetime
+from typing import Optional
 
 import networkx as nx
-import structlog
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.database import DBArticle, DBCitation
-
-logger = structlog.get_logger(__name__)
+from app.models.domain import Article
 
 
 class CitationGraphService:
-    """Service for managing the citation graph and computing PageRank."""
+    """
+    Manages the citation graph and computes PageRank scores.
+
+    The citation graph is a directed graph where:
+    - Nodes are articles (identified by their ID)
+    - Edges represent citations (A -> B means A cites B)
+
+    PageRank gives higher scores to articles that are:
+    1. Cited by many other articles
+    2. Cited by influential articles (recursive authority)
+    """
 
     def __init__(self):
-        """Initialize the citation graph service."""
-        self._graph: nx.DiGraph | None = None
+        self.settings = get_settings()
+        self._graph: Optional[nx.DiGraph] = None
         self._pagerank_scores: dict[str, float] = {}
-        self._is_dirty = True
+        self._last_computed: Optional[datetime] = None
 
-    @property
-    def graph(self) -> nx.DiGraph:
-        """Get the citation graph, creating if necessary."""
-        if self._graph is None:
-            self._graph = nx.DiGraph()
-        return self._graph
-
-    def clear(self) -> None:
-        """Clear the graph and scores."""
-        self._graph = None
-        self._pagerank_scores = {}
-        self._is_dirty = True
-
-    async def build_graph_from_db(self, session: AsyncSession) -> nx.DiGraph:
+    async def build_graph(self, session: AsyncSession) -> nx.DiGraph:
         """
-        Build the citation graph from database records.
+        Build the citation graph from the database.
 
-        Args:
-            session: Async database session
-
-        Returns:
-            The built NetworkX DiGraph
+        This loads all articles and citations into a NetworkX DiGraph.
+        For large datasets, we might need to do this incrementally.
         """
-        logger.info("Building citation graph from database")
+        graph = nx.DiGraph()
 
-        # Clear existing graph
-        self._graph = nx.DiGraph()
+        # Load all articles as nodes
+        result = await session.execute(
+            select(DBArticle.id, DBArticle.citation_count)
+        )
+        articles = result.all()
 
-        # Fetch all articles
-        articles_result = await session.execute(select(DBArticle.id))
-        article_ids = [row[0] for row in articles_result.fetchall()]
+        for article_id, citation_count in articles:
+            graph.add_node(article_id, citation_count=citation_count)
 
-        # Add all articles as nodes
-        for article_id in article_ids:
-            self._graph.add_node(article_id)
-
-        logger.info("Added article nodes", count=len(article_ids))
-
-        # Fetch all citations
-        citations_result = await session.execute(
+        # Load all citations as edges
+        result = await session.execute(
             select(DBCitation.citing_article_id, DBCitation.cited_article_id)
         )
-        citations = citations_result.fetchall()
+        citations = result.all()
 
-        # Add edges (citing -> cited)
-        edge_count = 0
         for citing_id, cited_id in citations:
-            # Only add edge if both nodes exist
-            if self._graph.has_node(citing_id) and self._graph.has_node(cited_id):
-                self._graph.add_edge(citing_id, cited_id)
-                edge_count += 1
+            # Add edge: citing -> cited
+            # PageRank will flow from citing to cited
+            graph.add_edge(citing_id, cited_id)
 
-        logger.info(
-            "Built citation graph",
-            nodes=self._graph.number_of_nodes(),
-            edges=edge_count,
-        )
-
-        self._is_dirty = True
-        return self._graph
-
-    def build_graph_from_articles(
-        self,
-        articles: Sequence[tuple[str, list[str]]],
-    ) -> nx.DiGraph:
-        """
-        Build the citation graph from article data.
-
-        Args:
-            articles: Sequence of (article_id, citation_ids) tuples
-
-        Returns:
-            The built NetworkX DiGraph
-        """
-        self._graph = nx.DiGraph()
-
-        # First pass: add all nodes
-        article_ids = set()
-        for article_id, _ in articles:
-            article_ids.add(article_id)
-            self._graph.add_node(article_id)
-
-        # Second pass: add edges
-        edge_count = 0
-        for article_id, citation_ids in articles:
-            for cited_id in citation_ids:
-                # Only add edge if cited article exists in our corpus
-                if cited_id in article_ids:
-                    self._graph.add_edge(article_id, cited_id)
-                    edge_count += 1
-
-        logger.info(
-            "Built citation graph from articles",
-            nodes=len(article_ids),
-            edges=edge_count,
-        )
-
-        self._is_dirty = True
-        return self._graph
-
-    def add_article(self, article_id: str, citation_ids: list[str] | None = None) -> None:
-        """
-        Add an article to the graph.
-
-        Args:
-            article_id: The article's ID
-            citation_ids: Optional list of cited article IDs
-        """
-        self.graph.add_node(article_id)
-
-        if citation_ids:
-            for cited_id in citation_ids:
-                if self.graph.has_node(cited_id):
-                    self.graph.add_edge(article_id, cited_id)
-
-        self._is_dirty = True
-
-    def add_citation(self, citing_id: str, cited_id: str) -> None:
-        """
-        Add a citation edge to the graph.
-
-        Args:
-            citing_id: ID of the citing article
-            cited_id: ID of the cited article
-        """
-        # Ensure both nodes exist
-        if not self.graph.has_node(citing_id):
-            self.graph.add_node(citing_id)
-        if not self.graph.has_node(cited_id):
-            self.graph.add_node(cited_id)
-
-        self.graph.add_edge(citing_id, cited_id)
-        self._is_dirty = True
-
-    def remove_article(self, article_id: str) -> None:
-        """
-        Remove an article from the graph.
-
-        Args:
-            article_id: The article's ID
-        """
-        if self.graph.has_node(article_id):
-            self.graph.remove_node(article_id)
-            self._is_dirty = True
+        self._graph = graph
+        return graph
 
     def compute_pagerank(
         self,
-        alpha: float = 0.85,
-        max_iter: int = 100,
-        tol: float = 1.0e-6,
-        personalization: dict[str, float] | None = None,
+        graph: Optional[nx.DiGraph] = None,
+        damping: Optional[float] = None,
+        max_iter: Optional[int] = None,
     ) -> dict[str, float]:
         """
-        Compute PageRank scores for all articles.
+        Compute PageRank scores for all nodes in the graph.
 
-        Uses NetworkX's PageRank implementation with configurable parameters.
+        The damping factor (typically 0.85) represents the probability
+        that a random walker continues following links vs. jumping
+        to a random node.
 
-        Args:
-            alpha: Damping factor (probability of following a link)
-            max_iter: Maximum iterations for convergence
-            tol: Convergence tolerance
-            personalization: Optional dict of node -> weight for personalized PageRank
+        Higher damping = more weight on link structure
+        Lower damping = more uniform distribution
 
         Returns:
-            Dict mapping article_id to PageRank score
+            Dictionary mapping article IDs to PageRank scores
         """
-        if not self._is_dirty and self._pagerank_scores:
-            logger.debug("Returning cached PageRank scores")
-            return self._pagerank_scores
+        if graph is None:
+            graph = self._graph
 
-        if self.graph.number_of_nodes() == 0:
-            logger.warning("Empty citation graph, returning empty scores")
-            self._pagerank_scores = {}
-            self._is_dirty = False
-            return self._pagerank_scores
+        if graph is None or len(graph) == 0:
+            return {}
+
+        damping = damping or self.settings.pagerank_damping
+        max_iter = max_iter or self.settings.pagerank_iterations
 
         try:
-            # Compute PageRank
-            raw_scores = nx.pagerank(
-                self.graph,
-                alpha=alpha,
+            # NetworkX's pagerank function handles:
+            # - Dangling nodes (no outgoing edges)
+            # - Convergence detection
+            # - Normalization (scores sum to 1)
+            scores = nx.pagerank(
+                graph,
+                alpha=damping,
                 max_iter=max_iter,
-                tol=tol,
-                personalization=personalization,
+                tol=1e-8,
             )
 
-            # Normalize scores to [0, 1] range
-            if raw_scores:
-                max_score = max(raw_scores.values())
-                min_score = min(raw_scores.values())
-                score_range = max_score - min_score
+            self._pagerank_scores = scores
+            self._last_computed = datetime.utcnow()
 
-                if score_range > 0:
-                    self._pagerank_scores = {
-                        article_id: (score - min_score) / score_range
-                        for article_id, score in raw_scores.items()
-                    }
-                else:
-                    # All scores equal, normalize to 0.5
-                    self._pagerank_scores = {
-                        article_id: 0.5 for article_id in raw_scores
-                    }
-            else:
-                self._pagerank_scores = {}
-
-            self._is_dirty = False
-
-            logger.info(
-                "Computed PageRank scores",
-                articles=len(self._pagerank_scores),
-                max_score=max(self._pagerank_scores.values()) if self._pagerank_scores else 0,
-            )
-
-            return self._pagerank_scores
+            return scores
 
         except nx.PowerIterationFailedConvergence:
-            logger.warning("PageRank failed to converge, using uniform scores")
-            node_count = self.graph.number_of_nodes()
-            self._pagerank_scores = {
-                node: 1.0 / node_count for node in self.graph.nodes()
-            }
-            self._is_dirty = False
-            return self._pagerank_scores
+            # Fall back to simpler approach if convergence fails
+            # This can happen with certain graph structures
+            scores = nx.pagerank(
+                graph,
+                alpha=0.5,  # Lower damping for better convergence
+                max_iter=max_iter * 2,
+                tol=1e-6,
+            )
+            self._pagerank_scores = scores
+            self._last_computed = datetime.utcnow()
+            return scores
 
-    def get_score(self, article_id: str | UUID) -> float:
+    async def update_article_scores(self, session: AsyncSession) -> int:
         """
-        Get the PageRank score for an article.
+        Update PageRank scores for all articles in the database.
+
+        Returns:
+            Number of articles updated
+        """
+        if not self._pagerank_scores:
+            return 0
+
+        updated = 0
+
+        # Normalize scores to 0-1 range for easier interpretation
+        max_score = max(self._pagerank_scores.values()) if self._pagerank_scores else 1
+        min_score = min(self._pagerank_scores.values()) if self._pagerank_scores else 0
+        score_range = max_score - min_score if max_score > min_score else 1
+
+        for article_id, raw_score in self._pagerank_scores.items():
+            # Normalize to 0-1
+            normalized_score = (raw_score - min_score) / score_range
+
+            # Update in database
+            result = await session.execute(
+                select(DBArticle).where(DBArticle.id == article_id)
+            )
+            article = result.scalar_one_or_none()
+
+            if article:
+                article.pagerank_score = normalized_score
+                article.scored_at = datetime.utcnow()
+                updated += 1
+
+        await session.commit()
+        return updated
+
+    def get_score(self, article_id: str) -> float:
+        """Get the PageRank score for a specific article."""
+        return self._pagerank_scores.get(article_id, 0.0)
+
+    def get_top_articles(self, n: int = 100) -> list[tuple[str, float]]:
+        """Get the top N articles by PageRank score."""
+        sorted_scores = sorted(
+            self._pagerank_scores.items(),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        return sorted_scores[:n]
+
+    async def add_citations(
+        self,
+        session: AsyncSession,
+        article_id: str,
+        citing_ids: list[str],
+        cited_ids: list[str],
+    ) -> int:
+        """
+        Add citation relationships to the database.
 
         Args:
-            article_id: The article's ID
+            article_id: The article we're adding citations for
+            citing_ids: Articles that cite this article
+            cited_ids: Articles that this article cites
 
         Returns:
-            PageRank score (0.0 if not found or not computed)
+            Number of new citations added
         """
-        # Convert UUID to string if necessary
-        str_id = str(article_id) if isinstance(article_id, UUID) else article_id
+        added = 0
 
-        if self._is_dirty:
-            self.compute_pagerank()
+        # Add citations where other articles cite this one
+        for citing_id in citing_ids:
+            try:
+                citation = DBCitation(
+                    citing_article_id=citing_id,
+                    cited_article_id=article_id,
+                )
+                session.add(citation)
+                added += 1
+            except Exception:
+                # Likely duplicate, skip
+                pass
 
-        return self._pagerank_scores.get(str_id, 0.0)
+        # Add citations where this article cites others
+        for cited_id in cited_ids:
+            try:
+                citation = DBCitation(
+                    citing_article_id=article_id,
+                    cited_article_id=cited_id,
+                )
+                session.add(citation)
+                added += 1
+            except Exception:
+                pass
 
-    def get_scores_batch(self, article_ids: Sequence[str | UUID]) -> dict[UUID, float]:
+        if added > 0:
+            await session.commit()
+
+        return added
+
+    def analyze_graph(self) -> dict:
         """
-        Get PageRank scores for multiple articles.
-
-        Args:
-            article_ids: Sequence of article IDs
-
-        Returns:
-            Dict mapping UUID to PageRank score
+        Analyze the citation graph structure.
+        Useful for debugging and understanding the data.
         """
-        if self._is_dirty:
-            self.compute_pagerank()
+        if not self._graph:
+            return {"error": "Graph not built"}
 
-        result = {}
-        for article_id in article_ids:
-            uuid_id = article_id if isinstance(article_id, UUID) else UUID(article_id)
-            str_id = str(uuid_id)
-            result[uuid_id] = self._pagerank_scores.get(str_id, 0.0)
-
-        return result
-
-    def get_citation_count(self, article_id: str) -> int:
-        """
-        Get the number of citations (in-degree) for an article.
-
-        Args:
-            article_id: The article's ID
-
-        Returns:
-            Number of articles citing this one
-        """
-        if self.graph.has_node(article_id):
-            return self.graph.in_degree(article_id)
-        return 0
-
-    def get_citing_articles(self, article_id: str) -> list[str]:
-        """
-        Get IDs of articles that cite this article.
-
-        Args:
-            article_id: The article's ID
-
-        Returns:
-            List of citing article IDs
-        """
-        if self.graph.has_node(article_id):
-            return list(self.graph.predecessors(article_id))
-        return []
-
-    def get_cited_articles(self, article_id: str) -> list[str]:
-        """
-        Get IDs of articles cited by this article.
-
-        Args:
-            article_id: The article's ID
-
-        Returns:
-            List of cited article IDs
-        """
-        if self.graph.has_node(article_id):
-            return list(self.graph.successors(article_id))
-        return []
-
-    def get_stats(self) -> dict:
-        """
-        Get statistics about the citation graph.
-
-        Returns:
-            Dict with graph statistics
-        """
-        if self.graph.number_of_nodes() == 0:
-            return {
-                "nodes": 0,
-                "edges": 0,
-                "density": 0.0,
-                "avg_in_degree": 0.0,
-                "avg_out_degree": 0.0,
-                "is_dirty": self._is_dirty,
-            }
+        graph = self._graph
 
         return {
-            "nodes": self.graph.number_of_nodes(),
-            "edges": self.graph.number_of_edges(),
-            "density": nx.density(self.graph),
-            "avg_in_degree": sum(d for _, d in self.graph.in_degree()) / self.graph.number_of_nodes(),
-            "avg_out_degree": sum(d for _, d in self.graph.out_degree()) / self.graph.number_of_nodes(),
-            "is_dirty": self._is_dirty,
+            "num_nodes": graph.number_of_nodes(),
+            "num_edges": graph.number_of_edges(),
+            "density": nx.density(graph),
+            "is_dag": nx.is_directed_acyclic_graph(graph),
+            "num_weakly_connected_components": nx.number_weakly_connected_components(graph),
+            "num_strongly_connected_components": nx.number_strongly_connected_components(graph),
+            "avg_in_degree": np.mean([d for n, d in graph.in_degree()]) if graph.number_of_nodes() > 0 else 0,
+            "avg_out_degree": np.mean([d for n, d in graph.out_degree()]) if graph.number_of_nodes() > 0 else 0,
+            "max_in_degree": max([d for n, d in graph.in_degree()]) if graph.number_of_nodes() > 0 else 0,
+            "max_out_degree": max([d for n, d in graph.out_degree()]) if graph.number_of_nodes() > 0 else 0,
+            "last_computed": self._last_computed.isoformat() if self._last_computed else None,
         }
 
 
-# Global service instance
-_citation_graph_service: CitationGraphService | None = None
+class IncrementalPageRank:
+    """
+    Incremental PageRank for efficiently updating scores when new articles arrive.
 
+    Instead of recomputing from scratch, we can:
+    1. Add new nodes/edges to the existing graph
+    2. Run a few PageRank iterations to propagate changes
+    3. Only fully recompute periodically (e.g., daily batch)
 
-def get_citation_graph_service() -> CitationGraphService:
-    """Get or create the citation graph service singleton."""
-    global _citation_graph_service
-    if _citation_graph_service is None:
-        _citation_graph_service = CitationGraphService()
-    return _citation_graph_service
+    This is more efficient for real-time updates.
+    """
+
+    def __init__(self, base_service: CitationGraphService):
+        self.base = base_service
+        self._pending_additions: list[tuple[str, list[str], list[str]]] = []
+
+    def queue_addition(
+        self,
+        article_id: str,
+        citing_ids: list[str],
+        cited_ids: list[str],
+    ):
+        """Queue a new article and its citations for incremental update."""
+        self._pending_additions.append((article_id, citing_ids, cited_ids))
+
+    async def apply_pending(self, session: AsyncSession) -> int:
+        """
+        Apply pending additions and do a quick PageRank update.
+
+        This runs fewer iterations than a full computation,
+        trading off accuracy for speed.
+        """
+        if not self._pending_additions:
+            return 0
+
+        graph = self.base._graph
+        if graph is None:
+            await self.base.build_graph(session)
+            graph = self.base._graph
+
+        # Add new nodes and edges
+        for article_id, citing_ids, cited_ids in self._pending_additions:
+            graph.add_node(article_id)
+
+            for citing_id in citing_ids:
+                if citing_id in graph:
+                    graph.add_edge(citing_id, article_id)
+
+            for cited_id in cited_ids:
+                if cited_id in graph:
+                    graph.add_edge(article_id, cited_id)
+
+            # Also add to database
+            await self.base.add_citations(session, article_id, citing_ids, cited_ids)
+
+        # Quick PageRank update (fewer iterations)
+        self.base.compute_pagerank(graph, max_iter=20)
+
+        count = len(self._pending_additions)
+        self._pending_additions = []
+
+        return count

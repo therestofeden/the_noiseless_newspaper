@@ -1,221 +1,260 @@
-# Noiseless Newspaper Backend
+# The Noiseless Newspaper - Backend
 
-The backend API for The Noiseless Newspaper - a curated news aggregator with intelligent article ranking.
+> Less (noise) is More. Signal survives time.
 
-## Overview
+A retrieval and ranking system that surfaces one high-signal article per day, chosen by what matters over time rather than what trends right now.
 
-This FastAPI backend provides:
+## Architecture Overview
 
-- **Article Aggregation**: Fetches articles from multiple sources (arXiv, NewsAPI, etc.)
-- **Intelligent Ranking**: Combines recency, votes, PageRank, and personalization
-- **3-Level Taxonomy**: Organizes content into domains, subtopics, and niches
-- **User Preferences**: Personalized article recommendations
-- **Citation Graph**: NetworkX-based PageRank for academic importance
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        FastAPI Application                       │
+├─────────────────────────────────────────────────────────────────┤
+│  /api/v1/taxonomy          - Topic hierarchy                    │
+│  /api/v1/users/.../preferences - User topic selections          │
+│  /api/v1/users/.../daily-article - THE daily article            │
+│  /api/v1/users/.../suggestions - Smart topic suggestions        │
+│  /api/v1/users/.../votes   - Time-delayed relevance voting      │
+│  /api/v1/users/.../stats   - User signal score & history        │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       Ranking Service                            │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐            │
+│  │  PageRank    │ │   Recency    │ │   Topic      │            │
+│  │  Citation    │ │   Decay      │ │   Embedding  │            │
+│  │  Score       │ │   Score      │ │   Similarity │            │
+│  └──────────────┘ └──────────────┘ └──────────────┘            │
+│         │                │                │                     │
+│         └────────────────┼────────────────┘                     │
+│                          ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Final Score = λ * VoteScore + (1-λ) * CitationScore     │  │
+│  │  λ increases as article accumulates more votes           │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Article Source Adapters                       │
+│  ┌─────────┐ ┌─────────────────┐ ┌──────────┐ ┌─────────────┐  │
+│  │ arXiv   │ │ Semantic Scholar│ │ OpenAlex │ │   NewsAPI   │  │
+│  │         │ │ (+ citations)   │ │          │ │             │  │
+│  └─────────┘ └─────────────────┘ └──────────┘ └─────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## The Algorithm
+
+### Cold Start (New Articles)
+Articles without user votes are ranked by **PageRank on the citation graph**:
+
+```python
+InitialScore = α × CitationCount + β × CitationVelocity + γ × SourceAuthority
+# α=0.4, β=0.35, γ=0.25
+
+PageRankScore = networkx.pagerank(citation_graph, alpha=0.85)
+```
+
+### Time-Weighted Voting
+Users vote on relevance at three time intervals:
+
+| Period | Weight | Rationale |
+|--------|--------|-----------|
+| 1 week | 15% | Initial impression, may be hype |
+| 1 month | 35% | Some perspective gained |
+| 1 year | 50% | True long-term signal |
+
+### Lambda Transition
+As articles accumulate votes, we shift from citation-based to vote-based scoring:
+
+```python
+λ = sigmoid(total_votes / threshold)  # Smooth transition
+
+FinalScore = (1-λ) × CitationScore + λ × WeightedVoteScore
+```
 
 ## Quick Start
 
 ### Prerequisites
-
 - Python 3.11+
-- pip or uv package manager
+- pip or uv
 
 ### Installation
 
 ```bash
-# Clone and navigate to backend
-cd backend
+# Clone and enter directory
+cd noiseless-backend
 
 # Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
 
 # Install dependencies
 pip install -e ".[dev]"
-
-# Or with uv (faster)
-uv pip install -e ".[dev]"
 ```
 
 ### Configuration
 
-```bash
-# Copy example environment file
-cp .env.example .env
+Create a `.env` file:
 
-# Edit .env with your settings (API keys are optional for development)
+```env
+# Required for production, optional for development (uses mocks)
+DATABASE_URL=sqlite+aiosqlite:///./data/noiseless.db
+
+# API Keys (all optional - uses mock data if not provided)
+SEMANTIC_SCHOLAR_API_KEY=your_key  # For citation data
+NEWSAPI_KEY=your_key               # For news articles
+OPENAI_API_KEY=your_key            # For embeddings
+ANTHROPIC_API_KEY=your_key         # For summaries
+
+# Environment
+ENVIRONMENT=development
+DEBUG=true
 ```
 
-### Running the Server
+### Running
 
 ```bash
-# Development mode with auto-reload
+# Start the server
 python -m app.main
 
-# Or directly with uvicorn
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Or with uvicorn directly
+uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`
+### API Documentation
 
-- API Documentation: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+Once running, visit:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 ## Project Structure
 
 ```
-backend/
+noiseless-backend/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI application entry point
-│   ├── config.py            # Pydantic settings
 │   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes.py        # API endpoints
+│   │   └── routes.py          # FastAPI endpoints
 │   ├── core/
-│   │   ├── __init__.py
-│   │   └── taxonomy.py      # 3-level topic taxonomy
+│   │   └── taxonomy.py        # Topic hierarchy definition
+│   ├── jobs/
+│   │   └── daily_ingestion.py # Batch job for fetching articles
 │   ├── models/
-│   │   ├── __init__.py
-│   │   ├── domain.py        # Pydantic models
-│   │   └── database.py      # SQLAlchemy models
+│   │   ├── database.py        # SQLAlchemy models
+│   │   └── domain.py          # Domain/business models
 │   ├── services/
-│   │   ├── __init__.py
-│   │   ├── ranking.py       # Article ranking algorithm
-│   │   └── citation_graph.py # PageRank computation
-│   └── sources/
-│       ├── __init__.py
-│       └── mock.py          # Mock data adapter
-├── pyproject.toml
-├── .env.example
+│   │   ├── citation_graph.py  # PageRank computation
+│   │   ├── embeddings.py      # Semantic similarity
+│   │   ├── ranking.py         # Main ranking algorithm
+│   │   └── summarization.py   # LLM summaries
+│   ├── sources/
+│   │   ├── arxiv.py           # arXiv API adapter
+│   │   ├── semantic_scholar.py # Semantic Scholar adapter
+│   │   ├── openalex.py        # OpenAlex adapter
+│   │   ├── newsapi.py         # NewsAPI adapter
+│   │   └── mock.py            # Mock data for development
+│   ├── config.py              # Configuration management
+│   └── main.py                # FastAPI application
+├── tests/                     # Test suite
+├── data/                      # SQLite database (gitignored)
+├── pyproject.toml             # Dependencies
 └── README.md
 ```
 
-## API Endpoints
+## Key Endpoints
 
-### Taxonomy
-
-- `GET /api/v1/taxonomy` - Get full taxonomy structure
-
-### User Preferences
-
-- `GET /api/v1/users/{user_id}/preferences` - Get user preferences
-- `PUT /api/v1/users/{user_id}/preferences` - Update preferences
-
-### Daily Articles
-
-- `GET /api/v1/users/{user_id}/daily-article` - Get personalized recommendations
-
-### Votes
-
-- `POST /api/v1/users/{user_id}/votes` - Create a vote
-- `GET /api/v1/users/{user_id}/votes` - Get user's votes
-
-### Stats
-
-- `GET /api/v1/users/{user_id}/stats` - Get user engagement stats
-
-### Health
-
-- `GET /api/v1/health` - Health check endpoint
-
-## Ranking Algorithm
-
-The ranking system combines multiple signals:
-
-### Score Components
-
-1. **Recency Score** (20%): Exponential decay based on publication time
-   ```
-   score = exp(-ln(2) * hours / half_life)
-   ```
-
-2. **Vote Score** (40%): Wilson score interval with time-weighted votes
-   ```
-   score = wilson_lower_bound * time_weight_factor
-   ```
-
-3. **PageRank Score** (30%): Citation-based importance
-   ```
-   score = normalized_pagerank(citation_graph)
-   ```
-
-4. **Topic Match Score** (10%): User preference alignment
-
-### Cold-Start Handling
-
-Uses a sigmoid lambda function to transition from prior-based ranking (new articles) to vote-based ranking (mature articles):
-
-```
-lambda = 1 / (1 + exp(-k * (votes - midpoint)))
-final_score = lambda * mature_score + (1 - lambda) * prior_score
+### Get Daily Article
+```http
+GET /api/v1/users/{user_id}/daily-article?topic_path=ai-ml/llms/interpretability
 ```
 
-## Taxonomy
+Returns THE one article for today on the selected topic.
 
-The system uses a 3-level taxonomy:
-
-### Domains
-- **ai-ml**: AI & Machine Learning
-- **physics**: Physics
-- **biotech**: Biotechnology
-- **economics**: Economics
-- **politics**: Politics & Policy
-
-### Example Path
-```
-ai-ml.llms.architectures
-│     │    └── Niche: Model Architectures
-│     └── Subtopic: Large Language Models
-└── Domain: AI & Machine Learning
+### Submit Vote
+```http
+POST /api/v1/users/{user_id}/votes
+{
+  "article_id": "arxiv:2401.12345",
+  "period": "1_month",
+  "score": 4
+}
 ```
 
-## Database
+### Get Smart Suggestions
+```http
+GET /api/v1/users/{user_id}/suggestions
+```
 
-Uses SQLAlchemy with async support. Default is SQLite for development; PostgreSQL recommended for production.
-
-### Models
-
-- `DBArticle`: Stored articles with metadata
-- `DBUser`: User accounts
-- `DBVote`: User votes (upvote/downvote/bookmark)
-- `DBClick`: Article read tracking
-- `DBUserPreferences`: User topic preferences
-- `DBCitation`: Article citation relationships
-- `DBArticleVoteStats`: Aggregated vote statistics
+Returns personalized topic suggestions based on reading history.
 
 ## Development
 
 ### Running Tests
 
 ```bash
-pytest
+pytest tests/ -v
 ```
 
-### Code Quality
+### Running the Ingestion Job Manually
 
 ```bash
-# Linting
-ruff check .
+# Via API (development mode only)
+curl -X POST http://localhost:8000/api/v1/admin/run-ingestion
 
-# Type checking
-mypy app/
-
-# Format
-ruff format .
+# Or directly
+python -c "import asyncio; from app.jobs.daily_ingestion import run_daily_job; asyncio.run(run_daily_job())"
 ```
 
-## Environment Variables
+### Database Migrations
 
-See `.env.example` for all configuration options. Key settings:
+Using Alembic (when needed):
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | Database connection string | SQLite |
-| `DEBUG` | Enable debug mode | `false` |
-| `ANTHROPIC_API_KEY` | Anthropic API key | None |
-| `RANKING_RECENCY_HALF_LIFE_HOURS` | Recency decay half-life | 24 |
-| `RANKING_WEIGHT_VOTES` | Vote component weight | 0.4 |
+```bash
+alembic revision --autogenerate -m "Description"
+alembic upgrade head
+```
 
-## License
+## Deployment
 
-MIT
+### Docker
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY . .
+
+RUN pip install -e .
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Environment Variables for Production
+
+```env
+ENVIRONMENT=production
+DEBUG=false
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/noiseless
+
+# Set all API keys
+SEMANTIC_SCHOLAR_API_KEY=...
+NEWSAPI_KEY=...
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+```
+
+## The Philosophy
+
+> "What feels important today often isn't. We optimize for what you'll still care about in a year."
+
+The Noiseless Newspaper is built on one core insight: **signal survives time**.
+
+Most content platforms optimize for engagement, which selects for novelty and outrage. We optimize for **retrospective relevance** - content that users rate as important long after they first encountered it.
+
+The longer you wait to vote, the more your vote counts. This inverts the typical engagement metric and creates a natural filter for lasting value.
+
+---
+
+Built with 🤫 by The Noiseless Team
