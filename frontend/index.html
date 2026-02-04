@@ -4,1253 +4,967 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Noiseless Newspaper</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Distinctive Typography: Cormorant Garamond (editorial) + Outfit (modern humanist) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            // Warm, editorial palette - cream and ink
+            cream: '#FAF7F2',
+            parchment: '#F0EBE3',
+            sand: '#E8E2D9',
+            ink: '#1C1917',
+            graphite: '#292524',
+            slate: '#57534E',
+            mist: '#A8A29E',
+            // Accent: deep terracotta (warmth, trust)
+            terra: {
+              50: '#FEF7F5',
+              100: '#FCEAE4',
+              200: '#F9D5CD',
+              300: '#F3B5A5',
+              400: '#E88B71',
+              500: '#DC6B4A',
+              600: '#C4523A',
+              700: '#A3412F',
+              800: '#86382B',
+              900: '#703329',
+            },
+            // Secondary: muted forest (calm, wisdom)
+            forest: {
+              50: '#F4F6F5',
+              100: '#E6EBE8',
+              200: '#CDD8D1',
+              300: '#A9BDB0',
+              400: '#7E9C88',
+              500: '#5E8069',
+              600: '#4A6754',
+              700: '#3D5444',
+              800: '#344539',
+              900: '#2C3A31',
+            }
+          },
+          fontFamily: {
+            'serif': ['"Cormorant Garamond"', 'Georgia', 'serif'],
+            'sans': ['Outfit', 'system-ui', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.3s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .slide-in { animation: slideIn 0.2s ease-out; }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    :root {
+      --cream: #FAF7F2;
+      --parchment: #F0EBE3;
+      --ink: #1C1917;
+      --terra: #DC6B4A;
+      --forest: #5E8069;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    ::selection {
+      background-color: var(--terra);
+      color: white;
+    }
+
+    /* Subtle paper texture */
+    .paper-bg {
+      background-color: var(--cream);
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(220, 107, 74, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(94, 128, 105, 0.03) 0%, transparent 50%);
+    }
+
+    /* Grain overlay */
+    .grain::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.02;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E");
+    }
+
+    /* Elegant animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes revealLine {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    .animate-fade-up { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
+    .animate-slide-down { animation: slideDown 0.5s ease-out forwards; }
+    .animate-scale-in { animation: scaleIn 0.4s ease-out forwards; }
+
+    .delay-100 { animation-delay: 0.1s; }
+    .delay-200 { animation-delay: 0.2s; }
+    .delay-300 { animation-delay: 0.3s; }
+    .delay-400 { animation-delay: 0.4s; }
+    .delay-500 { animation-delay: 0.5s; }
+    .delay-600 { animation-delay: 0.6s; }
+
+    .opacity-0 { opacity: 0; }
+
+    /* Decorative elements */
+    .ornament {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .ornament::before,
+    .ornament::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #D6D3D1, transparent);
+    }
+
+    /* Topic card hover */
+    .topic-card {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .topic-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px -8px rgba(28, 25, 23, 0.1);
+    }
+
+    /* Vote button */
+    .vote-btn {
+      transition: all 0.2s ease;
+    }
+
+    .vote-btn:hover {
+      transform: scale(1.08);
+    }
+
+    .vote-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--parchment); }
+    ::-webkit-scrollbar-thumb { background: #C4BFB6; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #A9A49B; }
+
+    /* Drop cap for articles */
+    .drop-cap::first-letter {
+      float: left;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 4.5rem;
+      line-height: 0.8;
+      padding-right: 0.5rem;
+      padding-top: 0.25rem;
+      color: var(--terra);
+      font-weight: 600;
+    }
+
+    /* Progress bar */
+    .survival-bar {
+      background: linear-gradient(90deg, var(--terra) 0%, var(--forest) 100%);
+    }
   </style>
 </head>
-<body>
+<body class="paper-bg grain font-sans text-ink antialiased">
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useCallback } = React;
 
     // ============================================
-    // COMPREHENSIVE 3-LEVEL TOPIC TAXONOMY
+    // TAXONOMY & DATA
     // ============================================
-    const topicTaxonomy = {
+    const TAXONOMY = {
       'ai-ml': {
-        id: 'ai-ml',
-        name: 'AI & Machine Learning',
-        icon: '🤖',
-        description: 'Artificial intelligence, deep learning, and computational intelligence',
+        name: 'Artificial Intelligence',
+        icon: '◈',
+        color: 'terra',
         subtopics: {
-          'llms': {
-            id: 'llms',
-            name: 'Large Language Models',
-            niches: {
-              'interpretability': { id: 'interpretability', name: 'Interpretability & Alignment' },
-              'architectures': { id: 'architectures', name: 'Model Architectures' },
-              'scaling': { id: 'scaling', name: 'Scaling Laws & Training' },
-              'applications': { id: 'applications', name: 'Applications & Deployment' }
-            }
+          'deep-learning': {
+            name: 'Deep Learning',
+            niches: ['transformers', 'computer-vision', 'reinforcement-learning', 'generative-models']
           },
-          'computer-vision': {
-            id: 'computer-vision',
-            name: 'Computer Vision',
-            niches: {
-              'generative': { id: 'generative', name: 'Generative Models (Diffusion, GANs)' },
-              'detection': { id: 'detection', name: 'Object Detection & Segmentation' },
-              'video': { id: 'video', name: 'Video Understanding' }
-            }
+          'nlp': {
+            name: 'Natural Language',
+            niches: ['large-language-models', 'interpretability', 'reasoning']
           },
-          'reinforcement': {
-            id: 'reinforcement',
-            name: 'Reinforcement Learning',
-            niches: {
-              'robotics': { id: 'robotics', name: 'Robotics & Control' },
-              'games': { id: 'games', name: 'Game Playing & Strategy' },
-              'multi-agent': { id: 'multi-agent', name: 'Multi-Agent Systems' }
-            }
-          },
-          'ml-theory': {
-            id: 'ml-theory',
-            name: 'ML Theory & Foundations',
-            niches: {
-              'optimization': { id: 'optimization', name: 'Optimization & Generalization' },
-              'causality': { id: 'causality', name: 'Causal Inference' },
-              'fairness': { id: 'fairness', name: 'Fairness & Robustness' }
-            }
+          'ml-systems': {
+            name: 'ML Systems',
+            niches: ['scaling', 'optimization', 'infrastructure']
           }
         }
       },
       'physics': {
-        id: 'physics',
         name: 'Physics',
-        icon: '⚛️',
-        description: 'Fundamental physics, condensed matter, and theoretical advances',
+        icon: '◉',
+        color: 'forest',
         subtopics: {
-          'complexity': {
-            id: 'complexity',
-            name: 'Complexity Science',
-            niches: {
-              'networks': { id: 'networks', name: 'Network Theory' },
-              'emergence': { id: 'emergence', name: 'Emergence & Self-Organization' },
-              'chaos': { id: 'chaos', name: 'Chaos & Dynamical Systems' },
-              'info-theory': { id: 'info-theory', name: 'Information Theory' }
-            }
-          },
           'quantum': {
-            id: 'quantum',
             name: 'Quantum Physics',
-            niches: {
-              'computing': { id: 'computing', name: 'Quantum Computing' },
-              'foundations': { id: 'foundations', name: 'Quantum Foundations' },
-              'materials': { id: 'materials', name: 'Quantum Materials' }
-            }
+            niches: ['quantum-computing', 'quantum-information', 'foundations']
           },
-          'condensed': {
-            id: 'condensed',
-            name: 'Condensed Matter',
-            niches: {
-              'superconductivity': { id: 'superconductivity', name: 'Superconductivity' },
-              'topological': { id: 'topological', name: 'Topological Phases' },
-              'soft-matter': { id: 'soft-matter', name: 'Soft Matter & Polymers' }
-            }
+          'complexity': {
+            name: 'Complexity Science',
+            niches: ['networks', 'emergence', 'chaos-theory']
           },
           'astro': {
-            id: 'astro',
-            name: 'Astrophysics & Cosmology',
-            niches: {
-              'exoplanets': { id: 'exoplanets', name: 'Exoplanets' },
-              'dark-matter': { id: 'dark-matter', name: 'Dark Matter & Energy' },
-              'gravitational': { id: 'gravitational', name: 'Gravitational Waves' }
-            }
-          }
-        }
-      },
-      'biotech': {
-        id: 'biotech',
-        name: 'Biotechnology',
-        icon: '🧬',
-        description: 'Genetic engineering, drug discovery, and biological systems',
-        subtopics: {
-          'gene-editing': {
-            id: 'gene-editing',
-            name: 'Gene Editing & Therapy',
-            niches: {
-              'crispr': { id: 'crispr', name: 'CRISPR & Base Editing' },
-              'gene-therapy': { id: 'gene-therapy', name: 'Gene Therapy Trials' },
-              'epigenetics': { id: 'epigenetics', name: 'Epigenetics' }
-            }
-          },
-          'drug-discovery': {
-            id: 'drug-discovery',
-            name: 'Drug Discovery',
-            niches: {
-              'ai-pharma': { id: 'ai-pharma', name: 'AI in Pharma' },
-              'clinical-trials': { id: 'clinical-trials', name: 'Clinical Trials' },
-              'small-molecules': { id: 'small-molecules', name: 'Small Molecules' }
-            }
-          },
-          'synbio': {
-            id: 'synbio',
-            name: 'Synthetic Biology',
-            niches: {
-              'metabolic': { id: 'metabolic', name: 'Metabolic Engineering' },
-              'cell-free': { id: 'cell-free', name: 'Cell-Free Systems' },
-              'biofuels': { id: 'biofuels', name: 'Biofuels & Biomaterials' }
-            }
-          },
-          'neuro': {
-            id: 'neuro',
-            name: 'Neuroscience',
-            niches: {
-              'brain-computer': { id: 'brain-computer', name: 'Brain-Computer Interfaces' },
-              'connectomics': { id: 'connectomics', name: 'Connectomics' },
-              'neurodegeneration': { id: 'neurodegeneration', name: 'Neurodegeneration' }
-            }
+            name: 'Astrophysics',
+            niches: ['cosmology', 'exoplanets', 'gravitational-waves']
           }
         }
       },
       'economics': {
-        id: 'economics',
         name: 'Economics & Finance',
-        icon: '📈',
-        description: 'Markets, policy, and economic theory',
+        icon: '◇',
+        color: 'terra',
         subtopics: {
           'macro': {
-            id: 'macro',
             name: 'Macroeconomics',
-            niches: {
-              'monetary': { id: 'monetary', name: 'Monetary Policy & Central Banks' },
-              'fiscal': { id: 'fiscal', name: 'Fiscal Policy & Debt' },
-              'trade': { id: 'trade', name: 'International Trade' }
-            }
-          },
-          'markets': {
-            id: 'markets',
-            name: 'Financial Markets',
-            niches: {
-              'equities': { id: 'equities', name: 'Equity Markets' },
-              'crypto': { id: 'crypto', name: 'Crypto & Digital Assets' },
-              'derivatives': { id: 'derivatives', name: 'Derivatives & Risk' }
-            }
+            niches: ['monetary-policy', 'fiscal-policy', 'international-trade']
           },
           'behavioral': {
-            id: 'behavioral',
             name: 'Behavioral Economics',
-            niches: {
-              'decision-making': { id: 'decision-making', name: 'Decision Making' },
-              'nudges': { id: 'nudges', name: 'Nudges & Policy Design' },
-              'experiments': { id: 'experiments', name: 'Economic Experiments' }
-            }
+            niches: ['decision-making', 'nudges', 'experiments']
           },
-          'development': {
-            id: 'development',
-            name: 'Development Economics',
-            niches: {
-              'poverty': { id: 'poverty', name: 'Poverty & Inequality' },
-              'institutions': { id: 'institutions', name: 'Institutions & Growth' },
-              'rcts': { id: 'rcts', name: 'RCTs & Impact Evaluation' }
-            }
+          'markets': {
+            name: 'Financial Markets',
+            niches: ['asset-pricing', 'crypto', 'risk']
+          }
+        }
+      },
+      'biotech': {
+        name: 'Biotechnology',
+        icon: '◎',
+        color: 'forest',
+        subtopics: {
+          'genomics': {
+            name: 'Genomics',
+            niches: ['crispr', 'gene-therapy', 'synthetic-biology']
+          },
+          'neuro': {
+            name: 'Neuroscience',
+            niches: ['brain-interfaces', 'connectomics', 'neurodegeneration']
+          },
+          'pharma': {
+            name: 'Drug Discovery',
+            niches: ['ai-pharma', 'clinical-trials', 'personalized-medicine']
           }
         }
       },
       'politics': {
-        id: 'politics',
-        name: 'Politics & Geopolitics',
-        icon: '🌍',
-        description: 'Political analysis, international relations, and governance',
+        name: 'Politics & Policy',
+        icon: '◆',
+        color: 'terra',
         subtopics: {
           'geopolitics': {
-            id: 'geopolitics',
             name: 'Geopolitics',
-            niches: {
-              'us-china': { id: 'us-china', name: 'US-China Relations' },
-              'europe': { id: 'europe', name: 'European Union' },
-              'emerging': { id: 'emerging', name: 'Emerging Powers' }
-            }
-          },
-          'domestic': {
-            id: 'domestic',
-            name: 'Domestic Politics',
-            niches: {
-              'elections': { id: 'elections', name: 'Elections & Voting' },
-              'polarization': { id: 'polarization', name: 'Polarization & Media' },
-              'policy': { id: 'policy', name: 'Policy Analysis' }
-            }
+            niches: ['us-china', 'europe', 'emerging-powers']
           },
           'governance': {
-            id: 'governance',
-            name: 'Governance & Institutions',
-            niches: {
-              'democracy': { id: 'democracy', name: 'Democratic Institutions' },
-              'tech-regulation': { id: 'tech-regulation', name: 'Tech Regulation' },
-              'international-law': { id: 'international-law', name: 'International Law' }
-            }
+            name: 'Governance',
+            niches: ['democracy', 'tech-regulation', 'institutions']
           },
-          'security': {
-            id: 'security',
-            name: 'Security & Defense',
-            niches: {
-              'cyber': { id: 'cyber', name: 'Cybersecurity' },
-              'military': { id: 'military', name: 'Military Strategy' },
-              'terrorism': { id: 'terrorism', name: 'Terrorism & Counterterrorism' }
-            }
+          'climate': {
+            name: 'Climate Policy',
+            niches: ['carbon-markets', 'energy-transition', 'adaptation']
           }
         }
       }
     };
 
-    // Sample articles mapped to taxonomy
-    const sampleArticles = {
-      'ai-ml/llms/interpretability': {
-        title: "Sparse Autoencoders Reveal Hidden Structure in Large Language Models",
-        source: "arXiv", citations: 847, date: "2026-01-28",
-        summary: "Researchers demonstrate that sparse autoencoders can decompose neural network activations into interpretable features, revealing how language models organize knowledge internally."
+    const SAMPLE_ARTICLES = [
+      {
+        id: '1',
+        title: 'Sparse Attention Patterns in Transformers: A Mathematical Framework for Computational Efficiency',
+        abstract: 'We present a rigorous analysis of sparse attention mechanisms, demonstrating that carefully designed sparsity patterns can achieve 94% of dense attention quality while reducing complexity from O(n²) to O(n log n). Our framework provides theoretical guarantees for attention approximation error bounds.',
+        authors: [{ name: 'Sarah Chen' }, { name: 'Michael Roberts' }],
+        source: 'arXiv',
+        published_at: '2026-02-03',
+        topic_path: 'ai-ml/deep-learning/transformers',
+        citation_count: 147,
+        survival_score: 0.89,
+        url: '#'
       },
-      'ai-ml/llms/scaling': {
-        title: "Chinchilla-2: Optimal Compute Allocation Revisited for 10T Parameter Models",
-        source: "DeepMind", citations: 1203, date: "2026-01-27",
-        summary: "New scaling laws show diminishing returns beyond 5T parameters without architectural innovations, suggesting a shift toward mixture-of-experts and retrieval augmentation."
-      },
-      'physics/complexity/networks': {
-        title: "Universal Scaling in Temporal Networks Reveals Hidden Social Dynamics",
-        source: "Nature Physics", citations: 432, date: "2026-01-26",
-        summary: "Analysis of 50 million interactions shows temporal networks follow universal scaling laws that predict cascade failures and viral spread with unprecedented accuracy."
-      },
-      'physics/complexity/emergence': {
-        title: "Self-Organized Criticality in Neural Networks Explains Generalization",
-        source: "Physical Review X", citations: 289, date: "2026-01-25",
-        summary: "Deep networks naturally evolve toward critical states during training, and this criticality directly correlates with generalization performance."
-      },
-      'physics/quantum/computing': {
-        title: "1000-Qubit Error-Corrected Quantum Computer Achieves Fault Tolerance",
-        source: "IBM Research", citations: 2341, date: "2026-01-24",
-        summary: "Milestone demonstration of fault-tolerant quantum computation using surface codes, running Shor's algorithm on a 128-bit integer."
-      },
-      'biotech/gene-editing/crispr': {
-        title: "CRISPR-Based Gene Therapy Shows 94% Efficacy in Sickle Cell Treatment",
-        source: "Nature Medicine", citations: 1567, date: "2026-01-28",
-        summary: "Landmark clinical trial demonstrates near-complete elimination of sickle cell crises over 3-year follow-up. One-time treatment modifies patients' own stem cells."
-      },
-      'biotech/neuro/brain-computer': {
-        title: "Neuralink Competitor Achieves 10,000 Channel Recording in Human Trials",
-        source: "Science", citations: 892, date: "2026-01-27",
-        summary: "Synchron's new electrode array enables unprecedented resolution in brain-computer interfaces, allowing paralyzed patients to control robotic arms with fine motor precision."
-      },
-      'economics/macro/monetary': {
-        title: "Central Banks Coordinate on Digital Currency Interoperability Standard",
-        source: "BIS Working Papers", citations: 312, date: "2026-01-26",
-        summary: "The Bank for International Settlements publishes framework enabling cross-border CBDC transactions across 47 participating nations."
-      },
-      'economics/behavioral/decision-making': {
-        title: "Meta-Analysis of 500 Nudge Interventions Reveals Long-Term Decay Patterns",
-        source: "Journal of Political Economy", citations: 445, date: "2026-01-25",
-        summary: "Comprehensive study shows most behavioral interventions lose 60% effectiveness within 6 months, but certain 'habit-forming' nudges persist indefinitely."
-      },
-      'politics/geopolitics/us-china': {
-        title: "Taiwan Semiconductor Announces Arizona Fab Expansion Amid Tensions",
-        source: "Foreign Affairs", citations: 234, date: "2026-01-28",
-        summary: "TSMC's $40B investment signals strategic decoupling acceleration. Analysis of supply chain implications for global chip markets."
-      },
-      'politics/governance/tech-regulation': {
-        title: "EU AI Act Enforcement Begins: First Major Fines Expected Q2",
-        source: "The Economist", citations: 156, date: "2026-01-27",
-        summary: "Regulatory bodies gear up for enforcement of world's first comprehensive AI legislation. Companies scramble to demonstrate compliance."
+      {
+        id: '2',
+        title: 'The Persistence of Monetary Policy Effects: Evidence from Japan\'s Lost Decades',
+        abstract: 'Drawing on three decades of economic data, we examine how zero interest rate policy and quantitative easing shape productivity growth, wealth distribution, and financial stability. Our findings challenge conventional assumptions about the neutrality of money.',
+        authors: [{ name: 'Kenji Yamamoto' }, { name: 'Elena Volkov' }],
+        source: 'NBER',
+        published_at: '2026-02-02',
+        topic_path: 'economics/macro/monetary-policy',
+        citation_count: 328,
+        survival_score: 0.94,
+        url: '#'
       }
-    };
+    ];
 
     // ============================================
-    // MAIN APP COMPONENT
+    // UTILITIES
     // ============================================
-    function NoiselessNewspaper() {
-      // App state
-      const [screen, setScreen] = useState('landing');
-      const [userPreferences, setUserPreferences] = useState(() => {
-        const saved = localStorage.getItem('noiseless-preferences');
-        return saved ? JSON.parse(saved) : {
-          selectedTopics: [], // Array of full paths: ['ai-ml/llms/interpretability', ...]
-          topicFrequencies: {}, // { 'ai-ml/llms': 'high' | 'medium' | 'low' }
-          clickHistory: [], // [{ path, timestamp, articleId }, ...]
-          votes: {} // { articleId: { score, period } }
-        };
+    const formatDate = (dateStr) => {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
       });
-      const [currentArticle, setCurrentArticle] = useState(null);
-      const [showAlgorithm, setShowAlgorithm] = useState(false);
-      const [algorithmMode, setAlgorithmMode] = useState('simple');
-      const [timeSimulation, setTimeSimulation] = useState(null);
-      const [votingQueue, setVotingQueue] = useState([]);
-      const [dailySuggestions, setDailySuggestions] = useState([]);
+    };
 
-      // Persist preferences
-      useEffect(() => {
-        localStorage.setItem('noiseless-preferences', JSON.stringify(userPreferences));
-      }, [userPreferences]);
-
-      // Generate smart suggestions based on click history
-      useEffect(() => {
-        if (screen === 'daily-choice' && userPreferences.selectedTopics.length > 0) {
-          const suggestions = generateSmartSuggestions(userPreferences);
-          setDailySuggestions(suggestions);
-        }
-      }, [screen, userPreferences]);
-
-      // Time simulation effect
-      useEffect(() => {
-        if (timeSimulation && currentArticle) {
-          const timer = setTimeout(() => {
-            setVotingQueue([{ ...currentArticle, period: timeSimulation }]);
-            setTimeSimulation(null);
-          }, 1500);
-          return () => clearTimeout(timer);
-        }
-      }, [timeSimulation, currentArticle]);
-
-      const generateSmartSuggestions = (prefs) => {
-        const { selectedTopics, clickHistory, topicFrequencies } = prefs;
-
-        // Score each topic based on click history and frequency preference
-        const topicScores = {};
-        selectedTopics.forEach(path => {
-          const parentPath = path.split('/').slice(0, 2).join('/');
-          const clicks = clickHistory.filter(c => c.path.startsWith(parentPath)).length;
-          const frequency = topicFrequencies[parentPath] || 'medium';
-          const freqMultiplier = frequency === 'high' ? 1.5 : frequency === 'low' ? 0.5 : 1;
-          topicScores[path] = (clicks + 1) * freqMultiplier + Math.random() * 0.5;
-        });
-
-        // Sort and take top 4 suggestions
-        const sorted = Object.entries(topicScores)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 4)
-          .map(([path]) => path);
-
-        return sorted;
-      };
-
-      const handleTopicSelect = (path) => {
-        // Record click
-        setUserPreferences(prev => ({
-          ...prev,
-          clickHistory: [
-            { path, timestamp: Date.now() },
-            ...prev.clickHistory.slice(0, 99) // Keep last 100 clicks
-          ]
-        }));
-
-        // Find article for this path
-        const article = sampleArticles[path] || sampleArticles[Object.keys(sampleArticles)[0]];
-        setCurrentArticle({ ...article, path });
-        setScreen('article');
-      };
-
-      const handleVote = (score) => {
-        if (!votingQueue[0]) return;
-
-        setUserPreferences(prev => ({
-          ...prev,
-          votes: {
-            ...prev.votes,
-            [votingQueue[0].path]: { score, period: votingQueue[0].period, timestamp: Date.now() }
-          }
-        }));
-        setVotingQueue([]);
-      };
-
-      const updateSelectedTopics = (topics) => {
-        setUserPreferences(prev => ({ ...prev, selectedTopics: topics }));
-      };
-
-      const updateTopicFrequency = (path, frequency) => {
-        setUserPreferences(prev => ({
-          ...prev,
-          topicFrequencies: { ...prev.topicFrequencies, [path]: frequency }
-        }));
-      };
-
-      // Render screens
-      if (screen === 'landing') {
-        return (
-          <LandingScreen
-            onStart={() => setScreen(userPreferences.selectedTopics.length > 0 ? 'daily-choice' : 'onboarding')}
-            onShowAlgorithm={() => setShowAlgorithm(true)}
-            hasExistingPrefs={userPreferences.selectedTopics.length > 0}
-            showAlgorithm={showAlgorithm}
-            algorithmMode={algorithmMode}
-            setAlgorithmMode={setAlgorithmMode}
-            onCloseAlgorithm={() => setShowAlgorithm(false)}
-          />
-        );
-      }
-
-      if (screen === 'onboarding') {
-        return (
-          <OnboardingScreen
-            taxonomy={topicTaxonomy}
-            selectedTopics={userPreferences.selectedTopics}
-            topicFrequencies={userPreferences.topicFrequencies}
-            onUpdateTopics={updateSelectedTopics}
-            onUpdateFrequency={updateTopicFrequency}
-            onComplete={() => setScreen('daily-choice')}
-            onBack={() => setScreen('landing')}
-          />
-        );
-      }
-
-      if (screen === 'daily-choice') {
-        return (
-          <DailyChoiceScreen
-            taxonomy={topicTaxonomy}
-            suggestions={dailySuggestions}
-            preferences={userPreferences}
-            onSelectTopic={handleTopicSelect}
-            onEditPreferences={() => setScreen('onboarding')}
-            onShowAlgorithm={() => setShowAlgorithm(true)}
-            onBack={() => setScreen('landing')}
-            showAlgorithm={showAlgorithm}
-            algorithmMode={algorithmMode}
-            setAlgorithmMode={setAlgorithmMode}
-            onCloseAlgorithm={() => setShowAlgorithm(false)}
-          />
-        );
-      }
-
-      if (screen === 'article') {
-        return (
-          <ArticleScreen
-            article={currentArticle}
-            taxonomy={topicTaxonomy}
-            onTimeSimulation={setTimeSimulation}
-            timeSimulation={timeSimulation}
-            votingQueue={votingQueue}
-            onVote={handleVote}
-            onCloseVoting={() => setVotingQueue([])}
-            onBack={() => setScreen('daily-choice')}
-            onShowAlgorithm={() => setShowAlgorithm(true)}
-            onShowTimeline={() => setScreen('timeline')}
-            showAlgorithm={showAlgorithm}
-            algorithmMode={algorithmMode}
-            setAlgorithmMode={setAlgorithmMode}
-            onCloseAlgorithm={() => setShowAlgorithm(false)}
-          />
-        );
-      }
-
-      if (screen === 'timeline') {
-        return (
-          <TimelineScreen
-            preferences={userPreferences}
-            taxonomy={topicTaxonomy}
-            onBack={() => setScreen('article')}
-            onHome={() => setScreen('landing')}
-          />
-        );
-      }
-
-      return null;
-    }
+    const getTopicLabel = (path) => {
+      const [domain, subtopic, niche] = path.split('/');
+      const d = TAXONOMY[domain];
+      if (!d) return path;
+      const s = d.subtopics[subtopic];
+      return s ? `${d.name} › ${s.name}` : d.name;
+    };
 
     // ============================================
-    // LANDING SCREEN
+    // COMPONENTS
     // ============================================
-    function LandingScreen({ onStart, onShowAlgorithm, hasExistingPrefs, showAlgorithm, algorithmMode, setAlgorithmMode, onCloseAlgorithm }) {
+
+    // Decorative ornament
+    const Ornament = ({ className = '' }) => (
+      <div className={`ornament text-terra-400 ${className}`}>
+        <span className="font-serif text-lg">✦</span>
+      </div>
+    );
+
+    // Logo
+    const Logo = ({ size = 'md', onClick }) => {
+      const sizes = {
+        sm: 'text-xl',
+        md: 'text-2xl',
+        lg: 'text-4xl md:text-5xl'
+      };
+
       return (
-        <div className="min-h-screen bg-stone-50 flex flex-col">
-          <nav className="p-6 flex justify-between items-center max-w-5xl mx-auto w-full">
-            <div className="text-xl font-light tracking-wide text-stone-800">The Noiseless Newspaper</div>
-            <button onClick={onStart} className="text-sm text-stone-600 hover:text-stone-900 transition-colors">
-              {hasExistingPrefs ? 'Continue' : 'Sign in'}
-            </button>
-          </nav>
+        <button
+          onClick={onClick}
+          className={`font-serif font-medium tracking-tight ${sizes[size]} text-ink hover:text-terra-600 transition-colors`}
+        >
+          The Noiseless <span className="text-terra-500">Newspaper</span>
+        </button>
+      );
+    };
 
-          <main className="flex-1 flex flex-col items-center justify-center px-6 -mt-20">
-            <div className="max-w-2xl text-center space-y-8">
-              <h1 className="text-5xl md:text-6xl font-light text-stone-900 leading-tight">
-                Less <span className="text-stone-400 line-through decoration-1">(noise)</span> is More.
-              </h1>
+    // Navigation
+    const Nav = ({ currentView, setCurrentView, minimal = false }) => (
+      <nav className={`sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-sand/50 ${minimal ? 'py-3' : 'py-4'}`}>
+        <div className="max-w-4xl mx-auto px-6 flex items-center justify-between">
+          <Logo size="sm" onClick={() => setCurrentView('landing')} />
 
-              <p className="text-xl text-stone-600 font-light leading-relaxed max-w-lg mx-auto">
-                One article per day. Chosen by what matters over time, not what trends right now.
-              </p>
-
-              <div className="pt-4">
-                <button
-                  onClick={onStart}
-                  className="px-8 py-4 bg-stone-900 text-white rounded-full text-lg font-light hover:bg-stone-800 transition-all hover:shadow-lg"
-                >
-                  {hasExistingPrefs ? 'Continue reading' : 'Begin your quiet reading'}
-                </button>
-              </div>
-
+          {!minimal && (
+            <div className="flex items-center gap-6">
               <button
-                onClick={onShowAlgorithm}
-                className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-4 decoration-stone-300"
-              >
-                How does it work?
-              </button>
-            </div>
-          </main>
-
-          <footer className="p-6 text-center text-stone-400 text-sm">
-            Signal survives time.
-          </footer>
-
-          {showAlgorithm && (
-            <AlgorithmExplainer mode={algorithmMode} setMode={setAlgorithmMode} onClose={onCloseAlgorithm} />
-          )}
-        </div>
-      );
-    }
-
-    // ============================================
-    // ONBOARDING SCREEN (Progressive Disclosure)
-    // ============================================
-    function OnboardingScreen({ taxonomy, selectedTopics, topicFrequencies, onUpdateTopics, onUpdateFrequency, onComplete, onBack }) {
-      const [expandedCategories, setExpandedCategories] = useState({});
-      const [expandedSubtopics, setExpandedSubtopics] = useState({});
-      const [showFrequencyFor, setShowFrequencyFor] = useState(null);
-
-      const toggleCategory = (catId) => {
-        setExpandedCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
-      };
-
-      const toggleSubtopic = (subId) => {
-        setExpandedSubtopics(prev => ({ ...prev, [subId]: !prev[subId] }));
-      };
-
-      const toggleTopic = (path) => {
-        const newTopics = selectedTopics.includes(path)
-          ? selectedTopics.filter(t => t !== path)
-          : [...selectedTopics, path];
-        onUpdateTopics(newTopics);
-      };
-
-      const isSelected = (path) => selectedTopics.some(t => t.startsWith(path));
-      const isExactlySelected = (path) => selectedTopics.includes(path);
-
-      const getSelectionCount = (catId) => {
-        return selectedTopics.filter(t => t.startsWith(catId)).length;
-      };
-
-      return (
-        <div className="min-h-screen bg-stone-50">
-          <nav className="p-6 flex justify-between items-center max-w-4xl mx-auto">
-            <button onClick={onBack} className="text-xl font-light tracking-wide text-stone-800">
-              The Noiseless Newspaper
-            </button>
-          </nav>
-
-          <main className="max-w-4xl mx-auto px-6 py-8">
-            <div className="space-y-8">
-              <header className="text-center space-y-3">
-                <h2 className="text-3xl font-light text-stone-900">Build your reading profile</h2>
-                <p className="text-stone-600 max-w-lg mx-auto">
-                  Expand categories to find your specific interests. The more precise you are,
-                  the better we can find signal in the noise.
-                </p>
-              </header>
-
-              <div className="space-y-3">
-                {Object.values(taxonomy).map(category => (
-                  <div key={category.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-                    {/* Category Header */}
-                    <button
-                      onClick={() => toggleCategory(category.id)}
-                      className="w-full p-4 flex items-center gap-4 hover:bg-stone-50 transition-colors"
-                    >
-                      <span className="text-2xl">{category.icon}</span>
-                      <div className="flex-1 text-left">
-                        <div className="font-medium text-stone-800">{category.name}</div>
-                        <div className="text-sm text-stone-500">{category.description}</div>
-                      </div>
-                      {getSelectionCount(category.id) > 0 && (
-                        <span className="px-2 py-1 bg-stone-900 text-white text-xs rounded-full">
-                          {getSelectionCount(category.id)} selected
-                        </span>
-                      )}
-                      <span className={`text-stone-400 transition-transform ${expandedCategories[category.id] ? 'rotate-90' : ''}`}>
-                        →
-                      </span>
-                    </button>
-
-                    {/* Subtopics */}
-                    {expandedCategories[category.id] && (
-                      <div className="border-t border-stone-100 bg-stone-50 p-4 space-y-2 fade-in">
-                        {Object.values(category.subtopics).map(subtopic => (
-                          <div key={subtopic.id} className="bg-white rounded-lg border border-stone-200">
-                            {/* Subtopic Header */}
-                            <div className="flex items-center">
-                              <button
-                                onClick={() => toggleSubtopic(`${category.id}/${subtopic.id}`)}
-                                className="flex-1 p-3 flex items-center gap-3 hover:bg-stone-50 transition-colors text-left"
-                              >
-                                <span className={`w-5 text-stone-400 transition-transform ${expandedSubtopics[`${category.id}/${subtopic.id}`] ? 'rotate-90' : ''}`}>
-                                  →
-                                </span>
-                                <span className="font-medium text-stone-700">{subtopic.name}</span>
-                                {selectedTopics.filter(t => t.startsWith(`${category.id}/${subtopic.id}`)).length > 0 && (
-                                  <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs rounded-full">
-                                    {selectedTopics.filter(t => t.startsWith(`${category.id}/${subtopic.id}`)).length}
-                                  </span>
-                                )}
-                              </button>
-
-                              {/* Frequency selector */}
-                              {selectedTopics.some(t => t.startsWith(`${category.id}/${subtopic.id}`)) && (
-                                <div className="pr-3">
-                                  <select
-                                    value={topicFrequencies[`${category.id}/${subtopic.id}`] || 'medium'}
-                                    onChange={(e) => onUpdateFrequency(`${category.id}/${subtopic.id}`, e.target.value)}
-                                    className="text-xs px-2 py-1 bg-stone-100 rounded border-0 text-stone-600"
-                                  >
-                                    <option value="high">High priority</option>
-                                    <option value="medium">Normal</option>
-                                    <option value="low">Occasional</option>
-                                  </select>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Niches */}
-                            {expandedSubtopics[`${category.id}/${subtopic.id}`] && (
-                              <div className="border-t border-stone-100 p-3 pl-10 space-y-2 slide-in">
-                                {Object.values(subtopic.niches).map(niche => {
-                                  const path = `${category.id}/${subtopic.id}/${niche.id}`;
-                                  return (
-                                    <button
-                                      key={niche.id}
-                                      onClick={() => toggleTopic(path)}
-                                      className={`w-full p-2 rounded-lg text-left text-sm transition-all flex items-center gap-2 ${
-                                        isExactlySelected(path)
-                                          ? 'bg-stone-900 text-white'
-                                          : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
-                                      }`}
-                                    >
-                                      <span className={`w-4 h-4 rounded border flex items-center justify-center ${
-                                        isExactlySelected(path) ? 'bg-white border-white' : 'border-stone-300'
-                                      }`}>
-                                        {isExactlySelected(path) && <span className="text-stone-900 text-xs">✓</span>}
-                                      </span>
-                                      {niche.name}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Summary & Continue */}
-              <div className="sticky bottom-0 bg-stone-50 pt-4 pb-6 border-t border-stone-200 -mx-6 px-6">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-stone-600">
-                    {selectedTopics.length === 0 ? (
-                      'Select at least one topic to continue'
-                    ) : (
-                      `${selectedTopics.length} topic${selectedTopics.length > 1 ? 's' : ''} selected`
-                    )}
-                  </div>
-                  <button
-                    onClick={onComplete}
-                    disabled={selectedTopics.length === 0}
-                    className={`px-6 py-3 rounded-full transition-all ${
-                      selectedTopics.length > 0
-                        ? 'bg-stone-900 text-white hover:bg-stone-800'
-                        : 'bg-stone-200 text-stone-400 cursor-not-allowed'
-                    }`}
-                  >
-                    Continue
-                  </button>
-                </div>
-              </div>
-            </div>
-          </main>
-        </div>
-      );
-    }
-
-    // ============================================
-    // DAILY CHOICE SCREEN (Smart Suggestions)
-    // ============================================
-    function DailyChoiceScreen({ taxonomy, suggestions, preferences, onSelectTopic, onEditPreferences, onShowAlgorithm, onBack, showAlgorithm, algorithmMode, setAlgorithmMode, onCloseAlgorithm }) {
-
-      const getTopicDisplay = (path) => {
-        const parts = path.split('/');
-        const cat = taxonomy[parts[0]];
-        const sub = cat?.subtopics[parts[1]];
-        const niche = sub?.niches[parts[2]];
-        return {
-          icon: cat?.icon || '📄',
-          category: cat?.name || '',
-          subtopic: sub?.name || '',
-          niche: niche?.name || '',
-          full: `${sub?.name}: ${niche?.name}`
-        };
-      };
-
-      const getFrequencyLabel = (path) => {
-        const parentPath = path.split('/').slice(0, 2).join('/');
-        const freq = preferences.topicFrequencies[parentPath];
-        if (freq === 'high') return '★ High priority';
-        if (freq === 'low') return 'Occasional';
-        return null;
-      };
-
-      const recentClicks = preferences.clickHistory.slice(0, 3);
-      const hasRecentHistory = recentClicks.length > 0;
-
-      return (
-        <div className="min-h-screen bg-stone-50">
-          <nav className="p-6 flex justify-between items-center max-w-3xl mx-auto">
-            <button onClick={onBack} className="text-xl font-light tracking-wide text-stone-800">
-              The Noiseless Newspaper
-            </button>
-            <div className="flex gap-4">
-              <button onClick={onShowAlgorithm} className="text-sm text-stone-500 hover:text-stone-700">
-                How it works
-              </button>
-              <button onClick={onEditPreferences} className="text-sm text-stone-500 hover:text-stone-700">
-                Edit interests
-              </button>
-            </div>
-          </nav>
-
-          <main className="max-w-3xl mx-auto px-6 py-8">
-            <div className="space-y-8">
-              <header className="text-center space-y-2">
-                <p className="text-stone-500 text-sm uppercase tracking-wider">
-                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                </p>
-                <h2 className="text-3xl font-light text-stone-900">
-                  {hasRecentHistory ? 'Based on your reading...' : 'What would you like to read about today?'}
-                </h2>
-                {hasRecentHistory && (
-                  <p className="text-stone-600 text-sm">
-                    We've learned from your choices. Here are today's suggestions.
-                  </p>
-                )}
-              </header>
-
-              {/* Smart Suggestions */}
-              <div className="space-y-3">
-                {suggestions.map((path, idx) => {
-                  const display = getTopicDisplay(path);
-                  const freqLabel = getFrequencyLabel(path);
-                  const isTopPick = idx === 0 && hasRecentHistory;
-
-                  return (
-                    <button
-                      key={path}
-                      onClick={() => onSelectTopic(path)}
-                      className={`w-full p-5 rounded-xl border transition-all text-left flex items-center gap-4 group ${
-                        isTopPick
-                          ? 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'
-                          : 'bg-white border-stone-200 hover:border-stone-400'
-                      }`}
-                    >
-                      <span className="text-3xl">{display.icon}</span>
-                      <div className="flex-1">
-                        <div className={`font-medium ${isTopPick ? 'text-white' : 'text-stone-800'}`}>
-                          {display.full}
-                        </div>
-                        <div className={`text-sm ${isTopPick ? 'text-stone-300' : 'text-stone-500'}`}>
-                          {display.category}
-                          {freqLabel && <span className="ml-2">• {freqLabel}</span>}
-                        </div>
-                      </div>
-                      {isTopPick && (
-                        <span className="px-2 py-1 bg-white/20 rounded text-xs">
-                          Top pick
-                        </span>
-                      )}
-                      <span className={`${isTopPick ? 'text-white/60' : 'text-stone-400'} group-hover:translate-x-1 transition-transform`}>
-                        →
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Browse all topics */}
-              <div className="text-center">
-                <button
-                  onClick={onEditPreferences}
-                  className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-4"
-                >
-                  Browse all topics
-                </button>
-              </div>
-
-              <p className="text-stone-400 text-sm text-center">
-                One choice. One article. That's all for today.
-              </p>
-            </div>
-          </main>
-
-          {showAlgorithm && (
-            <AlgorithmExplainer mode={algorithmMode} setMode={setAlgorithmMode} onClose={onCloseAlgorithm} />
-          )}
-        </div>
-      );
-    }
-
-    // ============================================
-    // ARTICLE SCREEN
-    // ============================================
-    function ArticleScreen({ article, taxonomy, onTimeSimulation, timeSimulation, votingQueue, onVote, onCloseVoting, onBack, onShowAlgorithm, onShowTimeline, showAlgorithm, algorithmMode, setAlgorithmMode, onCloseAlgorithm }) {
-
-      const getTopicDisplay = (path) => {
-        if (!path) return { icon: '📄', category: '', subtopic: '', niche: '' };
-        const parts = path.split('/');
-        const cat = taxonomy[parts[0]];
-        const sub = cat?.subtopics[parts[1]];
-        const niche = sub?.niches[parts[2]];
-        return {
-          icon: cat?.icon || '📄',
-          category: cat?.name || '',
-          subtopic: sub?.name || '',
-          niche: niche?.name || ''
-        };
-      };
-
-      const display = getTopicDisplay(article?.path);
-
-      return (
-        <div className="min-h-screen bg-stone-50">
-          <nav className="p-6 flex justify-between items-center max-w-3xl mx-auto">
-            <button onClick={() => window.location.reload()} className="text-xl font-light tracking-wide text-stone-800">
-              The Noiseless Newspaper
-            </button>
-            <div className="flex gap-4">
-              <button onClick={onShowAlgorithm} className="text-sm text-stone-500 hover:text-stone-700">
-                How it works
-              </button>
-              <button onClick={onShowTimeline} className="text-sm text-stone-500 hover:text-stone-700">
-                My Timeline
-              </button>
-            </div>
-          </nav>
-
-          <main className="max-w-3xl mx-auto px-6 py-8">
-            <article className="space-y-8">
-              <header className="space-y-4">
-                <div className="flex items-center gap-2 text-sm text-stone-500 flex-wrap">
-                  <span className="text-xl">{display.icon}</span>
-                  <span className="px-3 py-1 bg-stone-200 rounded-full">{display.niche}</span>
-                  <span className="text-stone-400">in</span>
-                  <span>{display.subtopic}</span>
-                  <span>•</span>
-                  <span>{article?.source}</span>
-                  <span>•</span>
-                  <span>{article?.date}</span>
-                </div>
-
-                <h1 className="text-3xl md:text-4xl font-light text-stone-900 leading-snug">
-                  {article?.title}
-                </h1>
-
-                <div className="flex items-center gap-4 text-sm text-stone-600">
-                  <div className="flex items-center gap-1">
-                    <span>📚</span>
-                    <span>{article?.citations} citations</span>
-                  </div>
-                </div>
-              </header>
-
-              <div className="prose prose-stone prose-lg max-w-none">
-                <p className="text-xl leading-relaxed text-stone-700">
-                  {article?.summary}
-                </p>
-              </div>
-
-              <div className="pt-4 space-y-4">
-                <a
-                  href="#"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-all"
-                >
-                  Read full article
-                  <span>↗</span>
-                </a>
-
-                <p className="text-stone-500 text-sm">
-                  We'll ask you about this article's relevance in 1 week, 1 month, and 1 year.
-                </p>
-              </div>
-
-              {/* Time Simulation */}
-              <div className="mt-12 p-6 bg-white rounded-xl border border-stone-200">
-                <h3 className="text-lg font-medium text-stone-800 mb-4">⏱ Demo: Simulate Time Passing</h3>
-                <p className="text-stone-600 text-sm mb-4">
-                  In the real app, you'd receive notifications at these intervals. Click to simulate:
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {['1 week', '1 month', '1 year'].map(period => (
-                    <button
-                      key={period}
-                      onClick={() => onTimeSimulation(period)}
-                      disabled={timeSimulation}
-                      className="px-4 py-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-sm transition-all disabled:opacity-50"
-                    >
-                      {timeSimulation === period ? '⏳ Loading...' : `Fast-forward ${period} →`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </article>
-          </main>
-
-          {/* Voting Modal */}
-          {votingQueue.length > 0 && (
-            <VotingModal article={votingQueue[0]} onVote={onVote} onClose={onCloseVoting} />
-          )}
-
-          {showAlgorithm && (
-            <AlgorithmExplainer mode={algorithmMode} setMode={setAlgorithmMode} onClose={onCloseAlgorithm} />
-          )}
-        </div>
-      );
-    }
-
-    // ============================================
-    // TIMELINE SCREEN
-    // ============================================
-    function TimelineScreen({ preferences, taxonomy, onBack, onHome }) {
-      const { votes, clickHistory } = preferences;
-
-      const getTopicDisplay = (path) => {
-        if (!path) return { niche: 'Unknown' };
-        const parts = path.split('/');
-        const cat = taxonomy[parts[0]];
-        const sub = cat?.subtopics[parts[1]];
-        const niche = sub?.niches[parts[2]];
-        return { niche: niche?.name || 'Unknown', icon: cat?.icon || '📄' };
-      };
-
-      const voteEntries = Object.entries(votes).map(([path, data]) => ({
-        path,
-        ...data,
-        display: getTopicDisplay(path)
-      }));
-
-      const signalScore = voteEntries.length > 0
-        ? Math.round((voteEntries.reduce((sum, v) => sum + v.score, 0) / (voteEntries.length * 5)) * 100)
-        : 0;
-
-      return (
-        <div className="min-h-screen bg-stone-50">
-          <nav className="p-6 flex justify-between items-center max-w-3xl mx-auto">
-            <button onClick={onHome} className="text-xl font-light tracking-wide text-stone-800">
-              The Noiseless Newspaper
-            </button>
-            <button onClick={onBack} className="text-sm text-stone-500 hover:text-stone-700">
-              ← Back
-            </button>
-          </nav>
-
-          <main className="max-w-3xl mx-auto px-6 py-8">
-            <div className="space-y-8">
-              <header className="space-y-2">
-                <h2 className="text-3xl font-light text-stone-900">Your Reading Timeline</h2>
-                <p className="text-stone-600">See how your past articles have held up over time.</p>
-              </header>
-
-              {voteEntries.length > 0 ? (
-                <div className="space-y-4">
-                  {voteEntries.map((vote, idx) => (
-                    <div key={idx} className={`p-5 bg-white rounded-xl border ${vote.score >= 4 ? 'border-green-200 bg-green-50' : 'border-stone-200'}`}>
-                      <div className="flex justify-between items-start flex-wrap gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span>{vote.display.icon}</span>
-                            <h3 className="font-medium text-stone-800">{vote.display.niche}</h3>
-                          </div>
-                          <p className="text-sm text-stone-500">Voted after {vote.period}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-stone-500">Your vote:</span>
-                            <span className={`font-medium ${vote.score >= 4 ? 'text-green-600' : ''}`}>{vote.score}/5</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-stone-500">
-                  <p>No votes yet. Read articles and vote on their relevance over time.</p>
-                </div>
-              )}
-
-              <div className="p-6 bg-stone-100 rounded-xl">
-                <h3 className="font-medium text-stone-800 mb-2">Your Signal Score</h3>
-                <p className="text-stone-600 text-sm">
-                  Based on how well your votes predict long-term relevance.
-                </p>
-                <div className="mt-4 flex items-center gap-3">
-                  <div className="h-2 flex-1 bg-stone-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-stone-700 rounded-full transition-all" style={{ width: `${signalScore}%` }}></div>
-                  </div>
-                  <span className="text-stone-700 font-medium">{signalScore}%</span>
-                </div>
-              </div>
-
-              {/* Click history */}
-              {clickHistory.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="font-medium text-stone-800">Recent Reading</h3>
-                  <div className="space-y-2">
-                    {clickHistory.slice(0, 10).map((click, idx) => {
-                      const display = getTopicDisplay(click.path);
-                      return (
-                        <div key={idx} className="p-3 bg-white rounded-lg border border-stone-200 flex items-center gap-3">
-                          <span>{display.icon}</span>
-                          <span className="text-sm text-stone-700">{display.niche}</span>
-                          <span className="text-xs text-stone-400 ml-auto">
-                            {new Date(click.timestamp).toLocaleDateString()}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </main>
-        </div>
-      );
-    }
-
-    // ============================================
-    // VOTING MODAL
-    // ============================================
-    function VotingModal({ article, onVote, onClose }) {
-      const [hoveredScore, setHoveredScore] = useState(0);
-      const [selectedScore, setSelectedScore] = useState(0);
-
-      return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-8 space-y-6 fade-in">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-stone-500 uppercase tracking-wider">{article.period} later...</p>
-              <h3 className="text-2xl font-light text-stone-900">How relevant was this article?</h3>
-            </div>
-
-            <div className="p-4 bg-stone-50 rounded-xl">
-              <p className="text-stone-700 font-medium">{article.title}</p>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm text-stone-600 text-center">Looking back, how important does this feel now?</p>
-              <div className="flex justify-center gap-2">
-                {[1, 2, 3, 4, 5].map(score => (
-                  <button
-                    key={score}
-                    onMouseEnter={() => setHoveredScore(score)}
-                    onMouseLeave={() => setHoveredScore(0)}
-                    onClick={() => setSelectedScore(score)}
-                    className={`w-12 h-12 rounded-full border-2 transition-all text-lg ${
-                      (hoveredScore || selectedScore) >= score
-                        ? 'border-stone-900 bg-stone-900 text-white'
-                        : 'border-stone-300 text-stone-400 hover:border-stone-400'
-                    }`}
-                  >
-                    {score}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-between text-xs text-stone-400 px-1">
-                <span>Noise</span>
-                <span>Signal</span>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 py-3 border border-stone-200 rounded-full text-stone-600 hover:bg-stone-50 transition-all">
-                Skip
-              </button>
-              <button
-                onClick={() => selectedScore && onVote(selectedScore)}
-                disabled={!selectedScore}
-                className={`flex-1 py-3 rounded-full transition-all ${
-                  selectedScore ? 'bg-stone-900 text-white hover:bg-stone-800' : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                onClick={() => setCurrentView('topics')}
+                className={`font-sans text-sm tracking-wide transition-colors ${
+                  currentView === 'topics' ? 'text-terra-500' : 'text-slate hover:text-ink'
                 }`}
               >
-                Submit
+                Topics
               </button>
+              <button
+                onClick={() => setCurrentView('votes')}
+                className={`font-sans text-sm tracking-wide transition-colors ${
+                  currentView === 'votes' ? 'text-terra-500' : 'text-slate hover:text-ink'
+                }`}
+              >
+                Pending Votes
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
+    );
+
+    // ============================================
+    // LANDING PAGE
+    // ============================================
+    const LandingPage = ({ onStart, hasPrefs }) => (
+      <div className="min-h-screen flex flex-col">
+        {/* Hero */}
+        <main className="flex-1 flex items-center justify-center px-6 py-20">
+          <div className="max-w-2xl text-center">
+            {/* Masthead */}
+            <div className="opacity-0 animate-slide-down">
+              <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl font-medium text-ink leading-tight">
+                The Noiseless
+              </h1>
+              <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl font-medium text-terra-500 leading-tight -mt-2">
+                Newspaper
+              </h1>
+            </div>
+
+            {/* Tagline */}
+            <p className="mt-6 font-sans text-xl md:text-2xl text-slate font-light tracking-wide opacity-0 animate-fade-up delay-200">
+              Less <span className="line-through decoration-terra-300/50">(noise)</span> is More.
+            </p>
+
+            <Ornament className="my-10 opacity-0 animate-fade-in delay-300" />
+
+            {/* Value prop */}
+            <div className="space-y-4 opacity-0 animate-fade-up delay-300">
+              <p className="font-serif text-xl md:text-2xl text-graphite leading-relaxed">
+                One article per day.<br />
+                Chosen for lasting value, not fleeting clicks.
+              </p>
+
+              <p className="font-sans text-slate leading-relaxed max-w-lg mx-auto">
+                Our readers vote on what matters—not immediately, but after a week, a month, a year.
+                We learn what survives. You read what endures.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <div className="mt-12 opacity-0 animate-fade-up delay-400">
+              <button
+                onClick={onStart}
+                className="group relative px-10 py-4 bg-ink text-cream font-sans font-medium tracking-wide overflow-hidden transition-all hover:shadow-xl hover:shadow-ink/10"
+              >
+                <span className="relative z-10">
+                  {hasPrefs ? 'Continue Reading' : 'Begin Your Journey'}
+                </span>
+                <div className="absolute inset-0 bg-terra-500 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+              </button>
+
+              <p className="mt-4 font-sans text-sm text-mist">
+                No account needed. Your preferences stay on this device.
+              </p>
+            </div>
+
+            {/* How it works preview */}
+            <div className="mt-20 grid grid-cols-3 gap-8 opacity-0 animate-fade-up delay-500">
+              {[
+                { num: '1', title: 'Choose', desc: 'Select your interests' },
+                { num: '2', title: 'Read', desc: 'One article daily' },
+                { num: '3', title: 'Reflect', desc: 'Vote over time' }
+              ].map(step => (
+                <div key={step.num} className="text-center">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-parchment flex items-center justify-center mb-3">
+                    <span className="font-serif text-terra-500">{step.num}</span>
+                  </div>
+                  <h3 className="font-sans font-medium text-ink">{step.title}</h3>
+                  <p className="font-sans text-sm text-mist">{step.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      );
-    }
+        </main>
+
+        {/* Footer quote */}
+        <footer className="py-8 text-center opacity-0 animate-fade-in delay-600">
+          <p className="font-serif italic text-mist">
+            "Signal survives time."
+          </p>
+        </footer>
+      </div>
+    );
 
     // ============================================
-    // ALGORITHM EXPLAINER
+    // TOPIC SELECTION
     // ============================================
-    function AlgorithmExplainer({ mode, setMode, onClose }) {
+    const TopicSelection = ({ selectedTopics, setSelectedTopics, onContinue }) => {
+      const [expanded, setExpanded] = useState({});
+      const [expandedSub, setExpandedSub] = useState({});
+
+      const toggleTopic = (path) => {
+        setSelectedTopics(prev =>
+          prev.includes(path)
+            ? prev.filter(t => t !== path)
+            : [...prev, path]
+        );
+      };
+
       return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-6">
-              <h2 className="text-2xl font-light text-stone-900">How The Algorithm Works</h2>
-              <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-2xl leading-none">×</button>
-            </div>
+        <div className="max-w-3xl mx-auto px-6 py-12">
+          {/* Header */}
+          <header className="text-center mb-12 opacity-0 animate-fade-up">
+            <h2 className="font-serif text-4xl text-ink mb-3">What Interests You?</h2>
+            <p className="font-sans text-slate">
+              Select topics to build your reading profile. The more specific, the better.
+            </p>
+          </header>
 
-            <div className="flex gap-2 mb-8">
-              <button
-                onClick={() => setMode('simple')}
-                className={`px-4 py-2 rounded-full text-sm transition-all ${mode === 'simple' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}
+          {/* Categories */}
+          <div className="space-y-4">
+            {Object.entries(TAXONOMY).map(([domainKey, domain], idx) => (
+              <div
+                key={domainKey}
+                className="opacity-0 animate-fade-up"
+                style={{ animationDelay: `${(idx + 1) * 100}ms` }}
               >
-                Simple Explanation
-              </button>
-              <button
-                onClick={() => setMode('technical')}
-                className={`px-4 py-2 rounded-full text-sm transition-all ${mode === 'technical' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}
-              >
-                Technical Details
-              </button>
+                {/* Domain header */}
+                <button
+                  onClick={() => setExpanded(prev => ({ ...prev, [domainKey]: !prev[domainKey] }))}
+                  className={`w-full p-5 rounded-xl border-2 transition-all topic-card ${
+                    expanded[domainKey]
+                      ? 'border-terra-200 bg-white shadow-sm'
+                      : 'border-sand bg-white/60 hover:bg-white hover:border-terra-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className={`text-2xl ${domain.color === 'terra' ? 'text-terra-400' : 'text-forest-400'}`}>
+                        {domain.icon}
+                      </span>
+                      <span className="font-serif text-xl text-ink">{domain.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {selectedTopics.filter(t => t.startsWith(domainKey)).length > 0 && (
+                        <span className="px-2 py-1 bg-terra-100 text-terra-700 text-xs font-sans rounded-full">
+                          {selectedTopics.filter(t => t.startsWith(domainKey)).length} selected
+                        </span>
+                      )}
+                      <svg
+                        className={`w-5 h-5 text-mist transition-transform ${expanded[domainKey] ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Subtopics */}
+                {expanded[domainKey] && (
+                  <div className="mt-2 ml-4 space-y-2 animate-fade-in">
+                    {Object.entries(domain.subtopics).map(([subKey, sub]) => (
+                      <div key={subKey}>
+                        <button
+                          onClick={() => setExpandedSub(prev => ({
+                            ...prev,
+                            [`${domainKey}/${subKey}`]: !prev[`${domainKey}/${subKey}`]
+                          }))}
+                          className={`w-full p-4 rounded-lg border transition-all text-left ${
+                            expandedSub[`${domainKey}/${subKey}`]
+                              ? 'border-forest-200 bg-forest-50/50'
+                              : 'border-parchment bg-parchment/30 hover:bg-parchment/60'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-sans font-medium text-graphite">{sub.name}</span>
+                            <svg
+                              className={`w-4 h-4 text-mist transition-transform ${
+                                expandedSub[`${domainKey}/${subKey}`] ? 'rotate-180' : ''
+                              }`}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* Niches */}
+                        {expandedSub[`${domainKey}/${subKey}`] && (
+                          <div className="mt-2 ml-4 flex flex-wrap gap-2 animate-fade-in">
+                            {sub.niches.map(niche => {
+                              const path = `${domainKey}/${subKey}/${niche}`;
+                              const isSelected = selectedTopics.includes(path);
+                              return (
+                                <button
+                                  key={niche}
+                                  onClick={() => toggleTopic(path)}
+                                  className={`px-4 py-2 rounded-full text-sm font-sans transition-all ${
+                                    isSelected
+                                      ? 'bg-terra-500 text-white shadow-md shadow-terra-500/20'
+                                      : 'bg-white border border-sand text-slate hover:border-terra-200 hover:text-ink'
+                                  }`}
+                                >
+                                  {niche.replace(/-/g, ' ')}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Selected summary */}
+          {selectedTopics.length > 0 && (
+            <div className="mt-8 p-5 bg-white rounded-xl border border-sand animate-scale-in">
+              <h3 className="font-sans font-medium text-ink mb-3">
+                Selected ({selectedTopics.length})
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedTopics.map(path => (
+                  <span
+                    key={path}
+                    className="px-3 py-1 bg-terra-50 text-terra-700 rounded-full text-sm font-sans"
+                  >
+                    {path.split('/').pop().replace(/-/g, ' ')}
+                  </span>
+                ))}
+              </div>
             </div>
+          )}
 
-            {mode === 'simple' ? (
-              <div className="space-y-8">
-                <div className="relative h-48 bg-stone-50 rounded-xl overflow-hidden flex items-center justify-center">
-                  <svg viewBox="0 0 400 150" className="w-full h-full">
-                    <line x1="200" y1="75" x2="80" y2="40" stroke="#d6d3d1" strokeWidth="2" />
-                    <line x1="200" y1="75" x2="320" y2="40" stroke="#d6d3d1" strokeWidth="2" />
-                    <line x1="200" y1="75" x2="120" y2="120" stroke="#d6d3d1" strokeWidth="2" />
-                    <line x1="200" y1="75" x2="280" y2="120" stroke="#d6d3d1" strokeWidth="2" />
-                    <circle cx="200" cy="75" r="20" fill="#292524" />
-                    <text x="200" y="80" textAnchor="middle" fill="white" fontSize="9">Today</text>
-                    <circle cx="80" cy="40" r="14" fill="#78716c" />
-                    <circle cx="320" cy="40" r="16" fill="#78716c" />
-                    <circle cx="120" cy="120" r="12" fill="#a8a29e" />
-                    <circle cx="280" cy="120" r="18" fill="#57534e" />
-                  </svg>
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <div className="text-3xl">📚</div>
-                    <h3 className="font-medium text-stone-800">Citations First</h3>
-                    <p className="text-sm text-stone-600">New articles start with a score based on academic citations. Think of it like peer credibility.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-3xl">⏳</div>
-                    <h3 className="font-medium text-stone-800">Time-Tested Votes</h3>
-                    <p className="text-sm text-stone-600">Your votes at 1 week, 1 month, and 1 year tell us what actually mattered. Later votes count more.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-3xl">🎯</div>
-                    <h3 className="font-medium text-stone-800">Signal Finds Signal</h3>
-                    <p className="text-sm text-stone-600">If your votes predict long-term value, your future votes carry more weight.</p>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                  <p className="text-amber-800 text-sm"><strong>The core insight:</strong> What feels important today often isn't. We optimize for what you'll still care about in a year.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6 text-sm">
-                <div className="space-y-4">
-                  <h3 className="font-medium text-stone-800">Cold Start: Citation-Based Ranking</h3>
-                  <div className="bg-stone-100 p-4 rounded-lg font-mono text-xs overflow-x-auto">
-                    <pre className="whitespace-pre-wrap">{`InitialScore(article) =
-  α × CitationCount + β × CitationVelocity + γ × SourceAuthority
-
-where: α=0.4, β=0.35, γ=0.25`}</pre>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="font-medium text-stone-800">Time-Decay Voting Function</h3>
-                  <div className="bg-stone-100 p-4 rounded-lg font-mono text-xs overflow-x-auto">
-                    <pre className="whitespace-pre-wrap">{`TimeWeight = { 1 week: 0.15, 1 month: 0.35, 1 year: 0.50 }
-
-RelevanceScore = Σ(vote × TimeWeight × UserCredibility)`}</pre>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-stone-800 text-stone-100 rounded-xl">
-                  <h4 className="font-medium mb-2">Key Properties</h4>
-                  <ul className="space-y-1 text-stone-300 text-xs">
-                    <li>• Resistant to hype cycles</li>
-                    <li>• Self-correcting via delayed voting</li>
-                    <li>• Sybil-resistant via credibility weighting</li>
-                    <li>• Graceful cold-start handling</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            <button onClick={onClose} className="w-full mt-8 py-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-all">
-              Got it
+          {/* Continue */}
+          <div className="mt-12 text-center">
+            <button
+              onClick={onContinue}
+              disabled={selectedTopics.length === 0}
+              className={`px-10 py-4 font-sans font-medium tracking-wide transition-all ${
+                selectedTopics.length > 0
+                  ? 'bg-ink text-cream hover:bg-graphite hover:shadow-lg'
+                  : 'bg-sand text-mist cursor-not-allowed'
+              }`}
+            >
+              Continue to Your Daily Article
             </button>
           </div>
         </div>
       );
-    }
+    };
 
     // ============================================
-    // RENDER
+    // DAILY ARTICLE VIEW
     // ============================================
+    const DailyArticle = ({ article }) => (
+      <div className="max-w-2xl mx-auto px-6 py-12">
+        {/* Date header */}
+        <div className="text-center mb-12 opacity-0 animate-slide-down">
+          <p className="font-sans text-sm text-mist tracking-widest uppercase">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+          </p>
+          <p className="font-serif text-2xl text-ink mt-1">
+            {formatDate(new Date().toISOString())}
+          </p>
+        </div>
+
+        <article className="opacity-0 animate-fade-up delay-200">
+          {/* Topic badge */}
+          <div className="mb-6">
+            <span className="inline-block px-4 py-1.5 bg-forest-50 text-forest-700 rounded-full text-sm font-sans">
+              {getTopicLabel(article.topic_path)}
+            </span>
+          </div>
+
+          {/* Title */}
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl text-ink leading-tight mb-6">
+            {article.title}
+          </h1>
+
+          {/* Meta */}
+          <div className="flex flex-wrap items-center gap-3 text-sm font-sans text-mist mb-8">
+            <span>{article.authors.map(a => a.name).join(', ')}</span>
+            <span className="text-sand">•</span>
+            <span>{article.source}</span>
+            <span className="text-sand">•</span>
+            <span>{formatDate(article.published_at)}</span>
+          </div>
+
+          {/* Decorative line */}
+          <div className="h-px bg-gradient-to-r from-transparent via-sand to-transparent mb-8" />
+
+          {/* Abstract with drop cap */}
+          <div className="drop-cap font-serif text-xl text-graphite leading-relaxed">
+            {article.abstract}
+          </div>
+
+          {/* Survival indicator */}
+          <div className="mt-12 p-6 bg-parchment/50 rounded-xl opacity-0 animate-fade-up delay-300">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-sans text-sm font-medium text-slate">Predicted Lasting Value</span>
+              <span className="font-sans text-sm font-semibold text-terra-600">
+                {Math.round(article.survival_score * 100)}%
+              </span>
+            </div>
+            <div className="h-2 bg-sand rounded-full overflow-hidden">
+              <div
+                className="h-full survival-bar rounded-full transition-all duration-1000"
+                style={{ width: `${article.survival_score * 100}%` }}
+              />
+            </div>
+            <p className="mt-3 font-sans text-xs text-mist">
+              Based on {article.citation_count} citations and patterns from articles readers found valuable over time.
+            </p>
+          </div>
+
+          {/* CTA */}
+          <div className="mt-10 text-center opacity-0 animate-fade-up delay-400">
+            <a
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-8 py-3 bg-ink text-cream font-sans font-medium hover:bg-graphite transition-colors"
+            >
+              Read Full Article
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+
+          <Ornament className="my-12 opacity-0 animate-fade-in delay-500" />
+
+          {/* Voting reminder */}
+          <div className="text-center opacity-0 animate-fade-up delay-500">
+            <p className="font-serif text-xl text-slate mb-3">
+              We'll ask you about this article in 1 week.
+            </p>
+            <p className="font-sans text-sm text-mist">
+              Did it stay with you? Your vote helps others find signal in the noise.
+            </p>
+          </div>
+        </article>
+      </div>
+    );
+
+    // ============================================
+    // PENDING VOTES
+    // ============================================
+    const VoteCard = ({ article, period, onVote }) => {
+      const [score, setScore] = useState(null);
+      const [done, setDone] = useState(false);
+
+      const labels = {
+        '1_week': 'One Week Later',
+        '1_month': 'One Month Later',
+        '1_year': 'One Year Later'
+      };
+
+      const questions = {
+        '1_week': 'Did this article stay with you?',
+        '1_month': 'Was this still relevant to your thinking?',
+        '1_year': 'Did this fundamentally change how you see things?'
+      };
+
+      const handleSubmit = () => {
+        if (score) {
+          onVote(article.id, period, score);
+          setDone(true);
+        }
+      };
+
+      if (done) {
+        return (
+          <div className="p-8 bg-white rounded-xl border border-forest-200 text-center animate-scale-in">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-forest-50 flex items-center justify-center">
+              <svg className="w-8 h-8 text-forest-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="font-serif text-xl text-ink">Thank you</p>
+            <p className="font-sans text-sm text-mist mt-1">Your vote helps others find signal.</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="p-6 bg-white rounded-xl border border-sand shadow-sm topic-card">
+          {/* Period badge */}
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-sans font-medium mb-4 ${
+            period === '1_year' ? 'bg-terra-100 text-terra-700' :
+            period === '1_month' ? 'bg-forest-100 text-forest-700' :
+            'bg-parchment text-slate'
+          }`}>
+            {labels[period]}
+          </span>
+
+          {/* Title */}
+          <h3 className="font-serif text-xl text-ink mb-2 line-clamp-2">{article.title}</h3>
+          <p className="font-sans text-sm text-mist mb-6">
+            {article.source} • {formatDate(article.published_at)}
+          </p>
+
+          {/* Question */}
+          <p className="font-sans text-slate mb-6">{questions[period]}</p>
+
+          {/* Vote buttons */}
+          <div className="flex justify-center gap-3 mb-4">
+            {[1, 2, 3, 4, 5].map(n => (
+              <button
+                key={n}
+                onClick={() => setScore(n)}
+                className={`vote-btn w-12 h-12 rounded-full font-sans font-medium ${
+                  score === n
+                    ? 'bg-terra-500 text-white shadow-lg shadow-terra-500/30'
+                    : 'bg-parchment text-slate hover:bg-terra-100'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between text-xs font-sans text-mist mb-6 px-2">
+            <span>Not at all</span>
+            <span>Profoundly</span>
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmit}
+            disabled={!score}
+            className={`w-full py-3 font-sans font-medium transition-all ${
+              score
+                ? 'bg-ink text-cream hover:bg-graphite'
+                : 'bg-sand text-mist cursor-not-allowed'
+            }`}
+          >
+            Submit Vote
+          </button>
+        </div>
+      );
+    };
+
+    const PendingVotes = ({ pendingVotes, onVote }) => {
+      if (pendingVotes.length === 0) {
+        return (
+          <div className="max-w-2xl mx-auto px-6 py-20 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-parchment flex items-center justify-center">
+              <svg className="w-10 h-10 text-mist" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="font-serif text-3xl text-ink mb-3">All Caught Up</h2>
+            <p className="font-sans text-slate">No pending votes. Check back later!</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="max-w-3xl mx-auto px-6 py-12">
+          <header className="text-center mb-12">
+            <h2 className="font-serif text-4xl text-ink mb-3">Time to Reflect</h2>
+            <p className="font-sans text-slate">
+              How did these articles hold up over time?
+            </p>
+          </header>
+
+          <div className="space-y-6">
+            {pendingVotes.map((vote, i) => (
+              <div
+                key={`${vote.article.id}-${vote.period}`}
+                className="opacity-0 animate-fade-up"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <VoteCard
+                  article={vote.article}
+                  period={vote.period}
+                  onVote={onVote}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    // ============================================
+    // MAIN APP
+    // ============================================
+    const App = () => {
+      const [view, setView] = useState('landing');
+      const [topics, setTopics] = useState([]);
+      const [article] = useState(SAMPLE_ARTICLES[0]);
+      const [pendingVotes, setPendingVotes] = useState([
+        { article: SAMPLE_ARTICLES[0], period: '1_week' },
+        { article: SAMPLE_ARTICLES[1], period: '1_month' },
+      ]);
+
+      // Load preferences
+      useEffect(() => {
+        const saved = localStorage.getItem('noiseless_prefs');
+        if (saved) {
+          const prefs = JSON.parse(saved);
+          setTopics(prefs.topics || []);
+          if (prefs.topics?.length > 0) {
+            setView('daily');
+          }
+        }
+      }, []);
+
+      // Save preferences
+      useEffect(() => {
+        if (topics.length > 0) {
+          localStorage.setItem('noiseless_prefs', JSON.stringify({ topics }));
+        }
+      }, [topics]);
+
+      const handleVote = (articleId, period, score) => {
+        setPendingVotes(prev =>
+          prev.filter(v => !(v.article.id === articleId && v.period === period))
+        );
+        console.log('Vote:', { articleId, period, score });
+      };
+
+      return (
+        <div className="min-h-screen">
+          {view !== 'landing' && (
+            <Nav currentView={view} setCurrentView={setView} />
+          )}
+
+          {view === 'landing' && (
+            <LandingPage
+              onStart={() => setView(topics.length > 0 ? 'daily' : 'topics')}
+              hasPrefs={topics.length > 0}
+            />
+          )}
+
+          {view === 'topics' && (
+            <TopicSelection
+              selectedTopics={topics}
+              setSelectedTopics={setTopics}
+              onContinue={() => setView('daily')}
+            />
+          )}
+
+          {view === 'daily' && (
+            <DailyArticle article={article} />
+          )}
+
+          {view === 'votes' && (
+            <PendingVotes pendingVotes={pendingVotes} onVote={handleVote} />
+          )}
+        </div>
+      );
+    };
+
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<NoiselessNewspaper />);
+    root.render(<App />);
   </script>
 </body>
 </html>
