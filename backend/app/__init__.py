@@ -1,1 +1,1 @@
-# Noiseless Newspaper Backend
+"""The Noiseless Newspaper - Backend Application."""

@@ -1,199 +1,210 @@
 """
-Pydantic domain models for the API layer.
+Domain models for The Noiseless Newspaper.
+These are the core business entities, independent of database/API representation.
 """
-
 from datetime import datetime
 from enum import Enum
-from typing import Annotated
-from uuid import UUID
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field
 
 
-class VoteType(str, Enum):
-    """Types of votes users can cast."""
+# =============================================================================
+# Enums
+# =============================================================================
 
-    UPVOTE = "upvote"
-    DOWNVOTE = "downvote"
-    BOOKMARK = "bookmark"
+class ArticleSource(str, Enum):
+    """Sources from which articles can be retrieved."""
+    ARXIV = "arxiv"
+    SEMANTIC_SCHOLAR = "semantic_scholar"
+    OPENLEX = "openalex"
+    NEWSAPI = "newsapi"
+    GNEWS = "gnews"
+    RSS = "rss"
+    MOCK = "mock"
+
+
+class ContentType(str, Enum):
+    """Type of content - affects ranking behavior."""
+    RESEARCH = "research"  # Academic papers, preprints
+    NEWS = "news"  # Current events, journalism
+    ANALYSIS = "analysis"  # Long-form analysis, reports
+
+
+class VotePeriod(str, Enum):
+    """Time periods at which users vote on relevance."""
+    ONE_WEEK = "1_week"
+    ONE_MONTH = "1_month"
+    ONE_YEAR = "1_year"
+
+
+# =============================================================================
+# Topic Taxonomy
+# =============================================================================
+
+class TopicNiche(BaseModel):
+    """Deepest level of topic specificity."""
+    id: str
+    name: str
+    keywords: list[str] = Field(default_factory=list)  # For search queries
+    embedding: Optional[list[float]] = None  # Precomputed topic embedding
+
+
+class TopicSubtopic(BaseModel):
+    """Mid-level topic category."""
+    id: str
+    name: str
+    niches: dict[str, TopicNiche] = Field(default_factory=dict)
+
+
+class TopicCategory(BaseModel):
+    """Top-level domain/category."""
+    id: str
+    name: str
+    icon: str
+    description: str
+    content_type: ContentType = ContentType.RESEARCH
+    subtopics: dict[str, TopicSubtopic] = Field(default_factory=dict)
 
 
 class TopicPath(BaseModel):
-    """Represents a path through the taxonomy."""
-
-    model_config = ConfigDict(frozen=True)
-
-    domain: str = Field(..., description="Top-level domain ID (e.g., 'ai-ml')")
-    subtopic: str = Field(..., description="Mid-level subtopic ID (e.g., 'llms')")
-    niche: str | None = Field(None, description="Bottom-level niche ID (e.g., 'architectures')")
+    """A specific path through the taxonomy (e.g., ai-ml/llms/interpretability)."""
+    category_id: str
+    subtopic_id: str
+    niche_id: str
 
     @property
-    def path_string(self) -> str:
-        """Return dot-separated path string."""
-        if self.niche:
-            return f"{self.domain}.{self.subtopic}.{self.niche}"
-        return f"{self.domain}.{self.subtopic}"
+    def path(self) -> str:
+        return f"{self.category_id}/{self.subtopic_id}/{self.niche_id}"
 
     @classmethod
-    def from_string(cls, path: str) -> "TopicPath":
-        """Parse a dot-separated path string."""
-        parts = path.split(".")
-        if len(parts) < 2:
+    def from_path(cls, path: str) -> "TopicPath":
+        parts = path.split("/")
+        if len(parts) != 3:
             raise ValueError(f"Invalid topic path: {path}")
-        return cls(
-            domain=parts[0],
-            subtopic=parts[1],
-            niche=parts[2] if len(parts) > 2 else None,
-        )
+        return cls(category_id=parts[0], subtopic_id=parts[1], niche_id=parts[2])
 
+
+# =============================================================================
+# Articles
+# =============================================================================
 
 class Author(BaseModel):
-    """Article author information."""
-
-    model_config = ConfigDict(frozen=True)
-
+    """Article author."""
     name: str
-    affiliation: str | None = None
-    url: str | None = None
+    affiliation: Optional[str] = None
+    orcid: Optional[str] = None
 
 
 class Article(BaseModel):
-    """Core article model."""
+    """Core article entity."""
+    id: str  # Unique ID (source-specific, e.g., arxiv:2401.12345)
+    source: ArticleSource
+    content_type: ContentType
 
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    source: str = Field(..., description="Source identifier (e.g., 'arxiv', 'newsapi')")
-    external_id: str = Field(..., description="ID in the source system")
+    # Core metadata
     title: str
-    abstract: str | None = None
-    url: str
+    abstract: Optional[str] = None
+    summary: Optional[str] = None  # LLM-generated summary
     authors: list[Author] = Field(default_factory=list)
-    topics: list[TopicPath] = Field(default_factory=list)
     published_at: datetime
-    fetched_at: datetime
-    citation_count: int = 0
-    citation_ids: list[str] = Field(default_factory=list, description="IDs of cited articles")
+    url: str  # Link to full article
 
-    @field_validator("title")
-    @classmethod
-    def title_not_empty(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("Title cannot be empty")
-        return v.strip()
+    # Topic classification
+    topic_path: Optional[str] = None  # Best matching topic path
+    topic_relevance_score: float = 0.0  # Embedding similarity
+
+    # Citation data (for research articles)
+    citation_count: int = 0
+    citation_velocity: float = 0.0  # Citations per month
+    citing_paper_ids: list[str] = Field(default_factory=list)
+    cited_paper_ids: list[str] = Field(default_factory=list)
+
+    # Computed scores
+    pagerank_score: float = 0.0
+    recency_score: float = 0.0
+    final_score: float = 0.0
+
+    # Embedding
+    embedding: Optional[list[float]] = None
+
+    # Timestamps
+    fetched_at: datetime = Field(default_factory=datetime.utcnow)
+    scored_at: Optional[datetime] = None
 
 
 class ArticleRanking(BaseModel):
-    """Article with ranking scores."""
-
-    model_config = ConfigDict(from_attributes=True)
-
+    """A ranked article with all scoring components exposed."""
     article: Article
-    final_score: float = Field(..., ge=0.0, le=1.0)
-    recency_score: float = Field(..., ge=0.0, le=1.0)
-    vote_score: float = Field(..., ge=0.0, le=1.0)
-    pagerank_score: float = Field(..., ge=0.0, le=1.0)
-    topic_match_score: float = Field(..., ge=0.0, le=1.0)
-    lambda_value: float = Field(..., ge=0.0, le=1.0, description="Cold-start transition factor")
+    rank: int
 
+    # Score breakdown
+    citation_score: float
+    recency_score: float
+    topic_relevance_score: float
+    user_vote_score: float
+    final_score: float
+
+    # Debug info
+    scoring_explanation: Optional[str] = None
+
+
+# =============================================================================
+# User Interactions
+# =============================================================================
 
 class UserVote(BaseModel):
-    """A user's vote on an article."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    user_id: UUID
-    article_id: UUID
-    vote_type: VoteType
-    created_at: datetime
+    """A user's vote on an article's relevance."""
+    user_id: str
+    article_id: str
+    period: VotePeriod
+    score: int = Field(ge=1, le=5)  # 1-5 relevance score
+    voted_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class UserVoteCreate(BaseModel):
-    """Request model for creating a vote."""
-
-    article_id: UUID
-    vote_type: VoteType
-
-
-class TopicPreference(BaseModel):
-    """User's preference for a topic."""
-
-    topic_path: TopicPath
-    weight: Annotated[float, Field(ge=0.0, le=1.0)] = 1.0
-    excluded: bool = False
+class UserClick(BaseModel):
+    """Record of a user clicking on / reading an article."""
+    user_id: str
+    article_id: str
+    topic_path: str
+    clicked_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class UserPreferences(BaseModel):
     """User's topic preferences and settings."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    user_id: UUID
-    topic_preferences: list[TopicPreference] = Field(default_factory=list)
-    daily_article_count: int = Field(default=5, ge=1, le=50)
-    preferred_sources: list[str] = Field(default_factory=list)
-    excluded_sources: list[str] = Field(default_factory=list)
-    updated_at: datetime
+    user_id: str
+    selected_topics: list[str] = Field(default_factory=list)  # Topic paths
+    topic_frequencies: dict[str, str] = Field(default_factory=dict)  # path -> high/medium/low
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class UserPreferencesUpdate(BaseModel):
-    """Request model for updating preferences."""
+# =============================================================================
+# Aggregated Scores
+# =============================================================================
 
-    topic_preferences: list[TopicPreference] | None = None
-    daily_article_count: int | None = Field(None, ge=1, le=50)
-    preferred_sources: list[str] | None = None
-    excluded_sources: list[str] | None = None
+class ArticleVoteStats(BaseModel):
+    """Aggregated vote statistics for an article."""
+    article_id: str
+
+    # Vote counts by period
+    votes_1_week: int = 0
+    votes_1_month: int = 0
+    votes_1_year: int = 0
+
+    # Average scores by period
+    avg_score_1_week: float = 0.0
+    avg_score_1_month: float = 0.0
+    avg_score_1_year: float = 0.0
+
+    # Weighted combined score
+    weighted_vote_score: float = 0.0
 
 
-class UserStats(BaseModel):
-    """Statistics about a user's engagement."""
-
-    user_id: UUID
+class UserSignalScore(BaseModel):
+    """How well a user's votes predict long-term community consensus."""
+    user_id: str
+    correlation_score: float = 0.0  # -1 to 1
     total_votes: int = 0
-    upvotes: int = 0
-    downvotes: int = 0
-    bookmarks: int = 0
-    articles_read: int = 0
-    favorite_topics: list[TopicPath] = Field(default_factory=list)
-    join_date: datetime
-    last_active: datetime
-
-
-class PaginatedResponse(BaseModel):
-    """Generic paginated response wrapper."""
-
-    items: list
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
-
-    @property
-    def has_next(self) -> bool:
-        return self.page < self.total_pages
-
-    @property
-    def has_prev(self) -> bool:
-        return self.page > 1
-
-
-class ArticleListResponse(BaseModel):
-    """Paginated list of ranked articles."""
-
-    articles: list[ArticleRanking]
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
-
-
-class DailyArticleResponse(BaseModel):
-    """Response for daily article recommendation."""
-
-    articles: list[ArticleRanking]
-    generated_at: datetime
-    topic_coverage: dict[str, int] = Field(
-        default_factory=dict,
-        description="Count of articles per topic",
-    )
+    votes_with_outcome: int = 0  # Votes where we have long-term data
+    computed_at: datetime = Field(default_factory=datetime.utcnow)
