@@ -159,6 +159,276 @@ RSS_FEEDS = {
             "authority": 0.75,
         },
     ],
+
+    # ========== NEW GENERAL TOPICS ==========
+
+    TopicDomain.SPORTS: [
+        {
+            "name": "ESPN",
+            "url": "https://www.espn.com/espn/rss/news",
+            "authority": 0.8,
+        },
+        {
+            "name": "ESPN NFL",
+            "url": "https://www.espn.com/espn/rss/nfl/news",
+            "authority": 0.8,
+        },
+        {
+            "name": "ESPN NBA",
+            "url": "https://www.espn.com/espn/rss/nba/news",
+            "authority": 0.8,
+        },
+        {
+            "name": "BBC Sport",
+            "url": "https://feeds.bbci.co.uk/sport/rss.xml",
+            "authority": 0.85,
+        },
+        {
+            "name": "BBC Football",
+            "url": "https://feeds.bbci.co.uk/sport/football/rss.xml",
+            "authority": 0.85,
+        },
+        {
+            "name": "Sports Illustrated",
+            "url": "https://www.si.com/rss/si_topstories.rss",
+            "authority": 0.75,
+        },
+        {
+            "name": "The Ringer",
+            "url": "https://www.theringer.com/rss/index.xml",
+            "authority": 0.7,
+        },
+    ],
+
+    TopicDomain.ENTERTAINMENT: [
+        {
+            "name": "Variety",
+            "url": "https://variety.com/feed/",
+            "authority": 0.85,
+        },
+        {
+            "name": "Hollywood Reporter",
+            "url": "https://www.hollywoodreporter.com/feed/",
+            "authority": 0.85,
+        },
+        {
+            "name": "Deadline",
+            "url": "https://deadline.com/feed/",
+            "authority": 0.8,
+        },
+        {
+            "name": "Pitchfork",
+            "url": "https://pitchfork.com/feed/feed-news/rss",
+            "authority": 0.8,
+        },
+        {
+            "name": "Rolling Stone",
+            "url": "https://www.rollingstone.com/feed/",
+            "authority": 0.75,
+        },
+        {
+            "name": "The Guardian Culture",
+            "url": "https://www.theguardian.com/culture/rss",
+            "authority": 0.8,
+        },
+        {
+            "name": "Vulture",
+            "url": "https://www.vulture.com/feed/rss/index.xml",
+            "authority": 0.75,
+        },
+        {
+            "name": "IndieWire",
+            "url": "https://www.indiewire.com/feed/",
+            "authority": 0.75,
+        },
+        {
+            "name": "Literary Hub",
+            "url": "https://lithub.com/feed/",
+            "authority": 0.75,
+        },
+    ],
+
+    TopicDomain.TECHNOLOGY: [
+        {
+            "name": "TechCrunch",
+            "url": "https://techcrunch.com/feed/",
+            "authority": 0.8,
+        },
+        {
+            "name": "The Verge",
+            "url": "https://www.theverge.com/rss/index.xml",
+            "authority": 0.8,
+        },
+        {
+            "name": "Wired",
+            "url": "https://www.wired.com/feed/rss",
+            "authority": 0.8,
+        },
+        {
+            "name": "Ars Technica",
+            "url": "https://feeds.arstechnica.com/arstechnica/index",
+            "authority": 0.85,
+        },
+        {
+            "name": "Engadget",
+            "url": "https://www.engadget.com/rss.xml",
+            "authority": 0.7,
+        },
+        {
+            "name": "Krebs on Security",
+            "url": "https://krebsonsecurity.com/feed/",
+            "authority": 0.9,
+        },
+        {
+            "name": "9to5Mac",
+            "url": "https://9to5mac.com/feed/",
+            "authority": 0.7,
+        },
+        {
+            "name": "9to5Google",
+            "url": "https://9to5google.com/feed/",
+            "authority": 0.7,
+        },
+    ],
+
+    TopicDomain.BUSINESS: [
+        {
+            "name": "Reuters Business",
+            "url": "https://www.reuters.com/business/feed/",
+            "authority": 0.95,
+        },
+        {
+            "name": "Reuters Markets",
+            "url": "https://www.reuters.com/markets/feed/",
+            "authority": 0.95,
+        },
+        {
+            "name": "CNBC Top News",
+            "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+            "authority": 0.8,
+        },
+        {
+            "name": "CNBC Markets",
+            "url": "https://www.cnbc.com/id/10001147/device/rss/rss.html",
+            "authority": 0.8,
+        },
+        {
+            "name": "Fortune",
+            "url": "https://fortune.com/feed/",
+            "authority": 0.8,
+        },
+        {
+            "name": "Harvard Business Review",
+            "url": "https://hbr.org/feed",
+            "authority": 0.9,
+        },
+        {
+            "name": "Forbes",
+            "url": "https://www.forbes.com/innovation/feed/",
+            "authority": 0.7,
+        },
+        {
+            "name": "Axios",
+            "url": "https://api.axios.com/feed/",
+            "authority": 0.75,
+        },
+    ],
+
+    TopicDomain.WORLD: [
+        {
+            "name": "Reuters World",
+            "url": "https://www.reuters.com/world/feed/",
+            "authority": 0.95,
+        },
+        {
+            "name": "AP World News",
+            "url": "https://feeds.apnews.com/rss/world",
+            "authority": 0.95,
+        },
+        {
+            "name": "BBC World",
+            "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+            "authority": 0.9,
+        },
+        {
+            "name": "BBC Europe",
+            "url": "https://feeds.bbci.co.uk/news/world/europe/rss.xml",
+            "authority": 0.9,
+        },
+        {
+            "name": "BBC Asia",
+            "url": "https://feeds.bbci.co.uk/news/world/asia/rss.xml",
+            "authority": 0.9,
+        },
+        {
+            "name": "Al Jazeera",
+            "url": "https://www.aljazeera.com/xml/rss/all.xml",
+            "authority": 0.8,
+        },
+        {
+            "name": "The Guardian World",
+            "url": "https://www.theguardian.com/world/rss",
+            "authority": 0.85,
+        },
+        {
+            "name": "Foreign Policy",
+            "url": "https://foreignpolicy.com/feed/",
+            "authority": 0.85,
+        },
+        {
+            "name": "War on the Rocks",
+            "url": "https://warontherocks.com/feed/",
+            "authority": 0.8,
+        },
+    ],
+
+    TopicDomain.ENVIRONMENT: [
+        {
+            "name": "Carbon Brief",
+            "url": "https://www.carbonbrief.org/feed/",
+            "authority": 0.9,
+        },
+        {
+            "name": "The Guardian Environment",
+            "url": "https://www.theguardian.com/environment/rss",
+            "authority": 0.85,
+        },
+        {
+            "name": "Yale Environment 360",
+            "url": "https://e360.yale.edu/feed",
+            "authority": 0.9,
+        },
+        {
+            "name": "Grist",
+            "url": "https://grist.org/feed/",
+            "authority": 0.8,
+        },
+        {
+            "name": "Inside Climate News",
+            "url": "https://insideclimatenews.org/feed/",
+            "authority": 0.85,
+        },
+        {
+            "name": "Nature Climate Change",
+            "url": "https://www.nature.com/nclimate.rss",
+            "authority": 0.95,
+        },
+        {
+            "name": "NASA Climate",
+            "url": "https://climate.nasa.gov/feed/news",
+            "authority": 0.9,
+        },
+        {
+            "name": "Mongabay",
+            "url": "https://news.mongabay.com/feed/",
+            "authority": 0.8,
+        },
+        {
+            "name": "Canary Media",
+            "url": "https://www.canarymedia.com/feed/",
+            "authority": 0.75,
+        },
+    ],
 }
 
 # XML namespaces for Atom feeds
