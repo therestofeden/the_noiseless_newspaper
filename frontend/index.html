@@ -235,6 +235,120 @@
     const { useState, useEffect, useCallback } = React;
 
     // ============================================
+    // API CONFIGURATION
+    // ============================================
+    const API_URL = window.location.hostname === 'localhost'
+      ? 'http://localhost:8000/api/v1'
+      : 'https://your-railway-app.railway.app/api/v1';  // TODO: Replace with actual Railway URL
+
+    // Generate or get user ID (stored in localStorage)
+    const getUserId = () => {
+      let userId = localStorage.getItem('noiseless_user_id');
+      if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('noiseless_user_id', userId);
+      }
+      return userId;
+    };
+
+    // ============================================
+    // API SERVICE
+    // ============================================
+    const api = {
+      // Get user's topic preferences
+      getPreferences: async () => {
+        const userId = getUserId();
+        try {
+          const res = await fetch(`${API_URL}/users/${userId}/preferences`);
+          if (!res.ok) throw new Error('Failed to get preferences');
+          return await res.json();
+        } catch (e) {
+          console.error('API error:', e);
+          // Fall back to localStorage
+          const saved = localStorage.getItem('noiseless_prefs');
+          return saved ? JSON.parse(saved) : { selected_topics: [] };
+        }
+      },
+
+      // Update user's topic preferences
+      savePreferences: async (topics) => {
+        const userId = getUserId();
+        try {
+          const res = await fetch(`${API_URL}/users/${userId}/preferences`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selected_topics: topics, topic_frequencies: {} }),
+          });
+          if (!res.ok) throw new Error('Failed to save preferences');
+          return await res.json();
+        } catch (e) {
+          console.error('API error:', e);
+          // Fall back to localStorage
+          localStorage.setItem('noiseless_prefs', JSON.stringify({ topics }));
+          return { selected_topics: topics };
+        }
+      },
+
+      // Get daily article for a topic
+      getDailyArticle: async (topicPath) => {
+        const userId = getUserId();
+        try {
+          const res = await fetch(`${API_URL}/users/${userId}/daily-article?topic_path=${encodeURIComponent(topicPath)}`);
+          if (!res.ok) throw new Error('Failed to get daily article');
+          const data = await res.json();
+          return data.article;
+        } catch (e) {
+          console.error('API error:', e);
+          return null;
+        }
+      },
+
+      // Get pending votes
+      getPendingVotes: async () => {
+        const userId = getUserId();
+        try {
+          const res = await fetch(`${API_URL}/users/${userId}/pending-votes`);
+          if (!res.ok) throw new Error('Failed to get pending votes');
+          const data = await res.json();
+          return data.pending_votes || [];
+        } catch (e) {
+          console.error('API error:', e);
+          return [];
+        }
+      },
+
+      // Submit a vote
+      submitVote: async (articleId, period, score) => {
+        const userId = getUserId();
+        try {
+          const res = await fetch(`${API_URL}/users/${userId}/votes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ article_id: articleId, period, score }),
+          });
+          if (!res.ok) throw new Error('Failed to submit vote');
+          return await res.json();
+        } catch (e) {
+          console.error('API error:', e);
+          return { success: false };
+        }
+      },
+
+      // Get user stats
+      getStats: async () => {
+        const userId = getUserId();
+        try {
+          const res = await fetch(`${API_URL}/users/${userId}/stats`);
+          if (!res.ok) throw new Error('Failed to get stats');
+          return await res.json();
+        } catch (e) {
+          console.error('API error:', e);
+          return null;
+        }
+      }
+    };
+
+    // ============================================
     // TAXONOMY & DATA
     // ============================================
     const TAXONOMY = {
@@ -1076,32 +1190,84 @@
     const App = () => {
       const [view, setView] = useState('landing');
       const [topics, setTopics] = useState([]);
-      const [article] = useState(SAMPLE_ARTICLES[0]);
-      const [pendingVotes, setPendingVotes] = useState([
-        { article: SAMPLE_ARTICLES[0], period: '1_week' },
-        { article: SAMPLE_ARTICLES[1], period: '1_month' },
-      ]);
+      const [article, setArticle] = useState(SAMPLE_ARTICLES[0]);
+      const [pendingVotes, setPendingVotes] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [useApi, setUseApi] = useState(true);  // Toggle for API vs localStorage
 
-      // Load preferences
+      // Load preferences on mount
       useEffect(() => {
-        const saved = localStorage.getItem('noiseless_prefs');
-        if (saved) {
-          const prefs = JSON.parse(saved);
-          setTopics(prefs.topics || []);
-          if (prefs.topics?.length > 0) {
-            setView('daily');
+        const loadData = async () => {
+          setLoading(true);
+          try {
+            if (useApi) {
+              // Try API first
+              const prefs = await api.getPreferences();
+              const savedTopics = prefs.selected_topics || [];
+              setTopics(savedTopics);
+
+              if (savedTopics.length > 0) {
+                // Load daily article
+                const firstTopic = savedTopics[0].split('/')[0];  // Get main topic
+                const dailyArticle = await api.getDailyArticle(savedTopics[0]);
+                if (dailyArticle) setArticle(dailyArticle);
+
+                // Load pending votes
+                const votes = await api.getPendingVotes();
+                setPendingVotes(votes.map(v => ({ article: v.article, period: v.period })));
+
+                setView('daily');
+              }
+            } else {
+              // Fall back to localStorage
+              const saved = localStorage.getItem('noiseless_prefs');
+              if (saved) {
+                const prefs = JSON.parse(saved);
+                setTopics(prefs.topics || []);
+                if (prefs.topics?.length > 0) {
+                  setView('daily');
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Failed to load data:', e);
+            // Fall back to sample data
+            setPendingVotes([
+              { article: SAMPLE_ARTICLES[0], period: '1_week' },
+              { article: SAMPLE_ARTICLES[1], period: '1_month' },
+            ]);
           }
-        }
-      }, []);
+          setLoading(false);
+        };
 
-      // Save preferences
+        loadData();
+      }, [useApi]);
+
+      // Save preferences when topics change
       useEffect(() => {
-        if (topics.length > 0) {
+        if (topics.length > 0 && !loading) {
+          if (useApi) {
+            api.savePreferences(topics);
+          }
           localStorage.setItem('noiseless_prefs', JSON.stringify({ topics }));
         }
-      }, [topics]);
+      }, [topics, useApi, loading]);
 
-      const handleVote = (articleId, period, score) => {
+      // Load article when topics change
+      useEffect(() => {
+        const loadArticle = async () => {
+          if (topics.length > 0 && useApi && view === 'daily') {
+            const dailyArticle = await api.getDailyArticle(topics[0]);
+            if (dailyArticle) setArticle(dailyArticle);
+          }
+        };
+        loadArticle();
+      }, [topics, view, useApi]);
+
+      const handleVote = async (articleId, period, score) => {
+        if (useApi) {
+          await api.submitVote(articleId, period, score);
+        }
         setPendingVotes(prev =>
           prev.filter(v => !(v.article.id === articleId && v.period === period))
         );
