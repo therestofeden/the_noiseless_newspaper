@@ -20,11 +20,20 @@ class SourceType(str, Enum):
 
 class TopicDomain(str, Enum):
     """Top-level topic domains."""
+    # Original deep topics (research-focused)
     AI_ML = "ai-ml"
     PHYSICS = "physics"
     ECONOMICS = "economics"
     BIOTECH = "biotech"
     POLITICS = "politics"
+
+    # New general topics (news-focused)
+    SPORTS = "sports"
+    ENTERTAINMENT = "entertainment"
+    TECHNOLOGY = "technology"
+    BUSINESS = "business"
+    WORLD = "world"
+    ENVIRONMENT = "environment"
 
 
 @dataclass

@@ -53,6 +53,31 @@
               700: '#3D5444',
               800: '#344539',
               900: '#2C3A31',
+            },
+            // New topic colors
+            sky: {
+              500: '#3B82F6',
+              600: '#2563EB',
+            },
+            violet: {
+              500: '#8B5CF6',
+              600: '#7C3AED',
+            },
+            cyan: {
+              500: '#06B6D4',
+              600: '#0891B2',
+            },
+            amber: {
+              500: '#F59E0B',
+              600: '#D97706',
+            },
+            indigo: {
+              500: '#6366F1',
+              600: '#4F46E5',
+            },
+            emerald: {
+              500: '#10B981',
+              600: '#059669',
             }
           },
           fontFamily: {
@@ -213,10 +238,12 @@
     // TAXONOMY & DATA
     // ============================================
     const TAXONOMY = {
+      // ===== DEEP TOPICS (Research-Focused) =====
       'ai-ml': {
         name: 'Artificial Intelligence',
         icon: '◈',
         color: 'terra',
+        type: 'deep',
         subtopics: {
           'deep-learning': {
             name: 'Deep Learning',
@@ -236,6 +263,7 @@
         name: 'Physics',
         icon: '◉',
         color: 'forest',
+        type: 'deep',
         subtopics: {
           'quantum': {
             name: 'Quantum Physics',
@@ -255,6 +283,7 @@
         name: 'Economics & Finance',
         icon: '◇',
         color: 'terra',
+        type: 'deep',
         subtopics: {
           'macro': {
             name: 'Macroeconomics',
@@ -274,6 +303,7 @@
         name: 'Biotechnology',
         icon: '◎',
         color: 'forest',
+        type: 'deep',
         subtopics: {
           'genomics': {
             name: 'Genomics',
@@ -293,18 +323,165 @@
         name: 'Politics & Policy',
         icon: '◆',
         color: 'terra',
+        type: 'deep',
         subtopics: {
-          'geopolitics': {
-            name: 'Geopolitics',
-            niches: ['us-china', 'europe', 'emerging-powers']
+          'us-politics': {
+            name: 'US Politics',
+            niches: ['congress', 'elections', 'executive']
           },
           'governance': {
             name: 'Governance',
             niches: ['democracy', 'tech-regulation', 'institutions']
           },
-          'climate': {
-            name: 'Climate Policy',
-            niches: ['carbon-markets', 'energy-transition', 'adaptation']
+          'policy': {
+            name: 'Public Policy',
+            niches: ['healthcare', 'education', 'criminal-justice']
+          }
+        }
+      },
+
+      // ===== GENERAL TOPICS (News-Focused) =====
+      'sports': {
+        name: 'Sports',
+        icon: '⚽',
+        color: 'sky',
+        type: 'news',
+        subtopics: {
+          'football-soccer': {
+            name: 'Football/Soccer',
+            niches: ['premier-league', 'champions-league', 'world-cup', 'transfers']
+          },
+          'american-sports': {
+            name: 'American Sports',
+            niches: ['nfl', 'nba', 'mlb', 'nhl']
+          },
+          'tennis-golf': {
+            name: 'Tennis & Golf',
+            niches: ['grand-slams', 'pga-tour', 'rankings']
+          },
+          'olympics': {
+            name: 'Olympics & Athletics',
+            niches: ['track-field', 'swimming', 'winter-sports']
+          }
+        }
+      },
+      'entertainment': {
+        name: 'Entertainment & Culture',
+        icon: '🎬',
+        color: 'violet',
+        type: 'news',
+        subtopics: {
+          'film-tv': {
+            name: 'Film & Television',
+            niches: ['theatrical', 'streaming', 'awards', 'industry']
+          },
+          'music': {
+            name: 'Music',
+            niches: ['albums', 'tours', 'industry', 'retrospectives']
+          },
+          'books': {
+            name: 'Books & Literature',
+            niches: ['fiction', 'nonfiction', 'awards', 'publishing']
+          },
+          'art': {
+            name: 'Art & Design',
+            niches: ['visual-arts', 'architecture', 'fashion', 'exhibitions']
+          }
+        }
+      },
+      'technology': {
+        name: 'Technology',
+        icon: '📱',
+        color: 'cyan',
+        type: 'news',
+        subtopics: {
+          'consumer-tech': {
+            name: 'Consumer Tech',
+            niches: ['smartphones', 'computing', 'smart-home', 'wearables']
+          },
+          'social-internet': {
+            name: 'Social & Internet',
+            niches: ['platforms', 'creator-economy', 'digital-culture', 'misinformation']
+          },
+          'gaming': {
+            name: 'Gaming',
+            niches: ['console-pc', 'mobile', 'esports', 'industry']
+          },
+          'cybersecurity': {
+            name: 'Cybersecurity',
+            niches: ['threats', 'privacy', 'regulation', 'enterprise']
+          }
+        }
+      },
+      'business': {
+        name: 'Business & Markets',
+        icon: '📈',
+        color: 'amber',
+        type: 'news',
+        subtopics: {
+          'corporate': {
+            name: 'Corporate News',
+            niches: ['earnings', 'mergers', 'executives', 'strategy']
+          },
+          'startups': {
+            name: 'Startups & VC',
+            niches: ['funding', 'unicorns', 'founders', 'ecosystem']
+          },
+          'investing': {
+            name: 'Markets & Investing',
+            niches: ['equities', 'bonds', 'commodities', 'crypto']
+          },
+          'management': {
+            name: 'Management & Strategy',
+            niches: ['leadership', 'organizational', 'future-of-work', 'cases']
+          }
+        }
+      },
+      'world': {
+        name: 'World News',
+        icon: '🌍',
+        color: 'indigo',
+        type: 'news',
+        subtopics: {
+          'geopolitics': {
+            name: 'Geopolitics',
+            niches: ['us-china', 'great-powers', 'trade', 'international-law']
+          },
+          'conflicts': {
+            name: 'Conflicts & Security',
+            niches: ['wars', 'terrorism', 'humanitarian', 'peacekeeping']
+          },
+          'diplomacy': {
+            name: 'Diplomacy',
+            niches: ['summits', 'treaties', 'un', 'foreign-policy']
+          },
+          'regions': {
+            name: 'Regional News',
+            niches: ['europe', 'asia', 'middle-east', 'africa', 'americas']
+          }
+        }
+      },
+      'environment': {
+        name: 'Environment & Climate',
+        icon: '🌱',
+        color: 'emerald',
+        type: 'news',
+        subtopics: {
+          'climate-science': {
+            name: 'Climate Science',
+            niches: ['research', 'ipcc', 'modeling', 'attribution']
+          },
+          'energy': {
+            name: 'Energy Transition',
+            niches: ['renewables', 'nuclear', 'grid', 'policy']
+          },
+          'conservation': {
+            name: 'Conservation',
+            niches: ['biodiversity', 'oceans', 'forests', 'species']
+          },
+          'sustainability': {
+            name: 'Sustainability',
+            niches: ['circular-economy', 'business', 'urban', 'food']
           }
         }
       }
