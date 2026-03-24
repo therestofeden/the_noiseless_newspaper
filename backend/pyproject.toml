@@ -40,6 +40,9 @@ dependencies = [
     # LLM for summarization
     "anthropic>=0.18.0",
     "openai>=1.10.0",
+
+    # Authentication
+    "python-jose[cryptography]>=3.3.0",  # JWT verification for Supabase Auth
 ]
 
 [project.optional-dependencies]

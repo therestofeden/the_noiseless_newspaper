@@ -100,6 +100,22 @@ class Settings(BaseSettings):
     batch_job_minute: int = 0
 
     # -------------------------------------------------------------------------
+    # Authentication
+    # -------------------------------------------------------------------------
+    # Supabase JWT secret – found at: Supabase Dashboard → Settings → API → JWT Secret
+    # Required in production; optional in development (falls back to debug mode)
+    supabase_jwt_secret: str | None = None
+
+    # Secret key for protecting admin endpoints (POST /admin/run-ingestion, etc.)
+    # Set to any strong random string in production
+    admin_api_key: str | None = None
+
+    # Supabase project details (used for auth + database)
+    supabase_url: str | None = None
+    supabase_anon_key: str | None = None
+    supabase_service_key: str | None = None
+
+    # -------------------------------------------------------------------------
     # Rate Limiting
     # -------------------------------------------------------------------------
     # Requests per minute to external APIs

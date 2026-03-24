@@ -73,10 +73,10 @@ async def lifespan(app: FastAPI):
         batch_job_time=f"{settings.batch_job_hour:02d}:{settings.batch_job_minute:02d} UTC",
     )
 
-    # Run initial ingestion if database is empty
+    # Run initial ingestion if database is empty (dev only)
     if settings.environment == "development":
         async with database.async_session() as session:
-            from sqlalchemy import select, func
+            from sqlalchemy import func, select
             from app.models.database import DBArticle
             result = await session.execute(select(func.count(DBArticle.id)))
             count = result.scalar()
@@ -145,25 +145,16 @@ async def root():
         "docs": "/docs",
         "endpoints": {
             "taxonomy": "/api/v1/taxonomy",
-            "preferences": "/api/v1/users/{user_id}/preferences",
-            "daily_article": "/api/v1/users/{user_id}/daily-article",
-            "suggestions": "/api/v1/users/{user_id}/suggestions",
-            "votes": "/api/v1/users/{user_id}/votes",
-            "stats": "/api/v1/users/{user_id}/stats",
+            "preferences": "/api/v1/users/me/preferences",
+            "daily_article": "/api/v1/users/me/daily-article",
+            "suggestions": "/api/v1/users/me/suggestions",
+            "votes": "/api/v1/users/me/votes",
+            "pending_votes": "/api/v1/users/me/pending-votes",
+            "stats": "/api/v1/users/me/stats",
+            "admin_ingestion": "/api/v1/admin/run-ingestion",
         },
     }
 
-
-# Manual trigger for ingestion (development only)
-@app.post("/api/v1/admin/run-ingestion")
-async def trigger_ingestion():
-    """Manually trigger the ingestion job (for development/testing)."""
-    settings = get_settings()
-    if settings.environment != "development":
-        return {"error": "Only available in development mode"}
-
-    asyncio.create_task(run_daily_ingestion())
-    return {"message": "Ingestion job started"}
 
 
 if __name__ == "__main__":

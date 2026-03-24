@@ -1,12 +1,19 @@
 """
 FastAPI routes for The Noiseless Newspaper API.
 
-These endpoints power the frontend application:
-- Topic taxonomy retrieval
-- User preferences management
-- Daily article selection
-- Voting on article relevance
-- User reading history and signal score
+Authentication
+--------------
+All ``/users/me/*`` endpoints require a valid Supabase JWT sent as:
+    Authorization: Bearer <token>
+
+In development (ENVIRONMENT=development, no SUPABASE_JWT_SECRET set) you may
+instead pass:
+    X-Debug-User-ID: your-test-user-id
+
+Public endpoints (taxonomy) require no authentication.
+
+Admin endpoints require:
+    X-Admin-API-Key: <ADMIN_API_KEY>
 """
 from datetime import datetime
 from typing import Optional
@@ -16,6 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import get_current_user_id, get_optional_user_id, require_admin
 from app.core.taxonomy import get_all_topic_paths, get_taxonomy_for_frontend, get_topic_info
 from app.models.database import (
     DBArticle,
@@ -70,7 +78,7 @@ class DailyArticleResponse(BaseModel):
     """Response body for the daily article."""
     article: ArticleResponse
     already_read: bool = False
-    vote_due: Optional[str] = None  # Period for which vote is due
+    vote_due: Optional[str] = None  # Period for which a vote is due
 
 
 class VoteRequest(BaseModel):
@@ -98,33 +106,32 @@ class UserStatsResponse(BaseModel):
 
 class SmartSuggestionsResponse(BaseModel):
     """Response body for smart topic suggestions."""
-    suggestions: list[dict]  # List of topic info with relevance
+    suggestions: list[dict]  # List of topic info with relevance score
 
 
 # =============================================================================
-# Dependency Injection
+# Database dependency injection
 # =============================================================================
 
-# Database instance (initialized in main.py)
 _database: Optional[Database] = None
 
 
-def set_database(db: Database):
-    """Set the database instance for dependency injection."""
+def set_database(db: Database) -> None:
+    """Set the global database instance (called from main.py on startup)."""
     global _database
     _database = db
 
 
 async def get_db() -> AsyncSession:
-    """Get database session."""
+    """Yield an async database session."""
     if _database is None:
-        raise HTTPException(status_code=500, detail="Database not initialized")
+        raise HTTPException(status_code=500, detail="Database not initialised")
     async with _database.async_session() as session:
         yield session
 
 
 async def get_or_create_user(session: AsyncSession, user_id: str) -> DBUser:
-    """Get or create a user."""
+    """Return an existing user or create one on first encounter."""
     result = await session.execute(select(DBUser).where(DBUser.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -138,24 +145,24 @@ async def get_or_create_user(session: AsyncSession, user_id: str) -> DBUser:
 
 
 # =============================================================================
-# Taxonomy Routes
+# Public routes – no authentication required
 # =============================================================================
 
-@router.get("/taxonomy")
+@router.get("/taxonomy", tags=["taxonomy"])
 async def get_taxonomy():
-    """Get the full topic taxonomy for frontend rendering."""
+    """Return the full topic taxonomy for frontend rendering."""
     return get_taxonomy_for_frontend()
 
 
-@router.get("/taxonomy/paths")
+@router.get("/taxonomy/paths", tags=["taxonomy"])
 async def get_topic_paths():
-    """Get all valid topic paths."""
+    """Return all valid topic paths."""
     return {"paths": get_all_topic_paths()}
 
 
-@router.get("/taxonomy/{path:path}")
+@router.get("/taxonomy/{path:path}", tags=["taxonomy"])
 async def get_topic(path: str):
-    """Get information about a specific topic."""
+    """Return information about a specific topic path."""
     info = get_topic_info(path)
     if not info:
         raise HTTPException(status_code=404, detail="Topic not found")
@@ -163,16 +170,21 @@ async def get_topic(path: str):
 
 
 # =============================================================================
-# User Preferences Routes
+# User preference routes  –  require authentication
 # =============================================================================
 
-@router.get("/users/{user_id}/preferences", response_model=UserPreferencesResponse)
-async def get_user_preferences(
-    user_id: str,
+@router.get(
+    "/users/me/preferences",
+    response_model=UserPreferencesResponse,
+    tags=["users"],
+    summary="Get my topic preferences",
+)
+async def get_my_preferences(
+    user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
-    """Get user's topic preferences."""
-    user = await get_or_create_user(session, user_id)
+    """Return the authenticated user's topic preferences."""
+    await get_or_create_user(session, user_id)
 
     result = await session.execute(
         select(DBUserPreferences).where(DBUserPreferences.user_id == user_id)
@@ -192,22 +204,29 @@ async def get_user_preferences(
     return UserPreferencesResponse(
         user_id=user_id,
         selected_topics=json.loads(prefs.selected_topics_json) if prefs.selected_topics_json else [],
-        topic_frequencies=json.loads(prefs.topic_frequencies_json) if prefs.topic_frequencies_json else {},
+        topic_frequencies=(
+            json.loads(prefs.topic_frequencies_json) if prefs.topic_frequencies_json else {}
+        ),
         created_at=prefs.created_at,
         updated_at=prefs.updated_at,
     )
 
 
-@router.put("/users/{user_id}/preferences", response_model=UserPreferencesResponse)
-async def update_user_preferences(
-    user_id: str,
+@router.put(
+    "/users/me/preferences",
+    response_model=UserPreferencesResponse,
+    tags=["users"],
+    summary="Update my topic preferences",
+)
+async def update_my_preferences(
     request: UserPreferencesRequest,
+    user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
-    """Update user's topic preferences."""
+    """Replace the authenticated user's topic preferences."""
     import json
 
-    user = await get_or_create_user(session, user_id)
+    await get_or_create_user(session, user_id)
 
     # Validate topic paths
     valid_paths = set(get_all_topic_paths())
@@ -245,28 +264,31 @@ async def update_user_preferences(
 
 
 # =============================================================================
-# Article Routes
+# Article routes  –  require authentication
 # =============================================================================
 
-@router.get("/users/{user_id}/daily-article", response_model=DailyArticleResponse)
-async def get_daily_article(
-    user_id: str,
+@router.get(
+    "/users/me/daily-article",
+    response_model=DailyArticleResponse,
+    tags=["articles"],
+    summary="Get today's article for a topic",
+)
+async def get_my_daily_article(
     topic_path: str = Query(..., description="Topic path for today's article"),
+    user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
     """
-    Get the single best article for a user on a given topic today.
+    Return the single best article for the authenticated user on a given topic today.
 
-    This is the core endpoint - one article per day, chosen by
-    the ranking algorithm.
+    This is the core endpoint – one article per day, chosen by the ranking algorithm.
     """
-    # Validate topic path
     if topic_path not in get_all_topic_paths():
         raise HTTPException(status_code=400, detail=f"Invalid topic path: {topic_path}")
 
-    user = await get_or_create_user(session, user_id)
+    await get_or_create_user(session, user_id)
 
-    # Get articles the user has already read today
+    # Articles already read today
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     result = await session.execute(
         select(DBClick.article_id)
@@ -275,17 +297,15 @@ async def get_daily_article(
     )
     read_today = {row[0] for row in result.all()}
 
-    # Get top article for this topic (excluding already read)
-    query = (
+    # Top candidates for this topic
+    result = await session.execute(
         select(DBArticle)
         .where(DBArticle.topic_path == topic_path)
         .order_by(DBArticle.final_score.desc())
         .limit(10)
     )
-    result = await session.execute(query)
     candidates = result.scalars().all()
 
-    # Find first unread article
     article = None
     for candidate in candidates:
         if candidate.id not in read_today:
@@ -293,21 +313,14 @@ async def get_daily_article(
             break
 
     if not article:
-        # All articles read, return top one anyway
         if candidates:
             article = candidates[0]
         else:
             raise HTTPException(status_code=404, detail="No articles available for this topic")
 
-    # Check if user has pending votes
     vote_due = await _check_pending_votes(session, user_id, article.id)
 
-    # Record the click
-    click = DBClick(
-        user_id=user_id,
-        article_id=article.id,
-        topic_path=topic_path,
-    )
+    click = DBClick(user_id=user_id, article_id=article.id, topic_path=topic_path)
     session.add(click)
     await session.commit()
 
@@ -318,22 +331,25 @@ async def get_daily_article(
     )
 
 
-@router.get("/users/{user_id}/suggestions", response_model=SmartSuggestionsResponse)
-async def get_smart_suggestions(
-    user_id: str,
+@router.get(
+    "/users/me/suggestions",
+    response_model=SmartSuggestionsResponse,
+    tags=["articles"],
+    summary="Get smart topic suggestions",
+)
+async def get_my_suggestions(
     limit: int = Query(default=4, le=10),
+    user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
     """
-    Get smart topic suggestions based on user's reading history.
-
-    Uses click history and topic frequencies to rank suggestions.
+    Return personalised topic suggestions based on the user's reading history
+    and declared topic frequencies.
     """
     import json
 
-    user = await get_or_create_user(session, user_id)
+    await get_or_create_user(session, user_id)
 
-    # Get user preferences
     result = await session.execute(
         select(DBUserPreferences).where(DBUserPreferences.user_id == user_id)
     )
@@ -343,9 +359,10 @@ async def get_smart_suggestions(
         return SmartSuggestionsResponse(suggestions=[])
 
     selected_topics = json.loads(prefs.selected_topics_json)
-    frequencies = json.loads(prefs.topic_frequencies_json) if prefs.topic_frequencies_json else {}
+    frequencies = (
+        json.loads(prefs.topic_frequencies_json) if prefs.topic_frequencies_json else {}
+    )
 
-    # Get click history
     result = await session.execute(
         select(DBClick.topic_path)
         .where(DBClick.user_id == user_id)
@@ -354,198 +371,187 @@ async def get_smart_suggestions(
     )
     click_history = [row[0] for row in result.all()]
 
-    # Score each selected topic
-    topic_scores = {}
-    for topic_path in selected_topics:
-        # Count clicks for this topic's parent
-        parent_path = "/".join(topic_path.split("/")[:2])
+    topic_scores: dict[str, float] = {}
+    for path in selected_topics:
+        parent_path = "/".join(path.split("/")[:2])
         click_count = sum(1 for c in click_history if c.startswith(parent_path))
-
-        # Apply frequency multiplier
         freq = frequencies.get(parent_path, "medium")
         freq_mult = {"high": 1.5, "medium": 1.0, "low": 0.5}.get(freq, 1.0)
 
-        # Add some randomness for variety
         import random
-        topic_scores[topic_path] = (click_count + 1) * freq_mult + random.random() * 0.5
+        topic_scores[path] = (click_count + 1) * freq_mult + random.random() * 0.5
 
-    # Sort and take top suggestions
     sorted_topics = sorted(topic_scores.items(), key=lambda x: x[1], reverse=True)
-    top_topics = sorted_topics[:limit]
-
     suggestions = []
-    for path, score in top_topics:
+    for path, score in sorted_topics[:limit]:
         info = get_topic_info(path)
         if info:
-            suggestions.append({
-                **info,
-                "relevance_score": score,
-            })
+            suggestions.append({**info, "relevance_score": score})
 
     return SmartSuggestionsResponse(suggestions=suggestions)
 
 
 # =============================================================================
-# Voting Routes
+# Voting routes  –  require authentication
 # =============================================================================
 
-@router.post("/users/{user_id}/votes", response_model=VoteResponse)
-async def submit_vote(
-    user_id: str,
+@router.post(
+    "/users/me/votes",
+    response_model=VoteResponse,
+    tags=["votes"],
+    summary="Submit a relevance vote",
+)
+async def submit_my_vote(
     request: VoteRequest,
+    user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
     """
     Submit a vote on an article's relevance.
 
-    Votes are cast at different time periods (1 week, 1 month, 1 year)
-    after reading the article.
+    Votes are cast at three time periods (1 week, 1 month, 1 year) after
+    first reading the article.  Later votes carry more weight in the
+    ranking algorithm.
     """
-    user = await get_or_create_user(session, user_id)
+    await get_or_create_user(session, user_id)
 
-    # Validate period
     try:
         period = VotePeriod(request.period)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid period: {request.period}")
 
-    # Check if article exists
     result = await session.execute(
         select(DBArticle).where(DBArticle.id == request.article_id)
     )
-    article = result.scalar_one_or_none()
-    if not article:
+    if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Article not found")
 
-    # Check for existing vote
     result = await session.execute(
         select(DBVote)
         .where(DBVote.user_id == user_id)
         .where(DBVote.article_id == request.article_id)
         .where(DBVote.period == period.value)
     )
-    existing_vote = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
 
-    if existing_vote:
-        # Update existing vote
-        existing_vote.score = request.score
-        existing_vote.voted_at = datetime.utcnow()
+    if existing:
+        existing.score = request.score
+        existing.voted_at = datetime.utcnow()
         message = "Vote updated"
     else:
-        # Create new vote
-        vote = DBVote(
-            user_id=user_id,
-            article_id=request.article_id,
-            period=period.value,
-            score=request.score,
+        session.add(
+            DBVote(
+                user_id=user_id,
+                article_id=request.article_id,
+                period=period.value,
+                score=request.score,
+            )
         )
-        session.add(vote)
         message = "Vote recorded"
 
     await session.commit()
-
     return VoteResponse(success=True, message=message)
 
 
-@router.get("/users/{user_id}/pending-votes")
-async def get_pending_votes(
-    user_id: str,
+@router.get(
+    "/users/me/pending-votes",
+    tags=["votes"],
+    summary="Get articles awaiting a relevance vote",
+)
+async def get_my_pending_votes(
+    user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
     """
-    Get articles that need votes based on time elapsed since reading.
+    Return articles that need a vote based on how long ago they were read.
 
-    Returns articles read:
-    - ~1 week ago (needs 1_week vote)
-    - ~1 month ago (needs 1_month vote)
-    - ~1 year ago (needs 1_year vote)
+    Checks for articles read approximately:
+    - 1 week ago (needs 1_week vote)
+    - 1 month ago (needs 1_month vote)
+    - 1 year ago (needs 1_year vote)
     """
     from datetime import timedelta
 
-    user = await get_or_create_user(session, user_id)
+    await get_or_create_user(session, user_id)
 
     now = datetime.utcnow()
     pending = []
 
-    # Define vote windows (with some tolerance)
     windows = [
-        ("1_week", timedelta(days=6), timedelta(days=10)),
-        ("1_month", timedelta(days=28), timedelta(days=35)),
-        ("1_year", timedelta(days=360), timedelta(days=400)),
+        ("1_week",  timedelta(days=6),   timedelta(days=10)),
+        ("1_month", timedelta(days=28),  timedelta(days=35)),
+        ("1_year",  timedelta(days=360), timedelta(days=400)),
     ]
 
     for period, min_age, max_age in windows:
-        # Find clicks in this window
         result = await session.execute(
             select(DBClick)
             .where(DBClick.user_id == user_id)
             .where(DBClick.clicked_at >= now - max_age)
             .where(DBClick.clicked_at <= now - min_age)
         )
-        clicks = result.scalars().all()
-
-        for click in clicks:
-            # Check if already voted for this period
-            result = await session.execute(
+        for click in result.scalars().all():
+            result2 = await session.execute(
                 select(DBVote)
                 .where(DBVote.user_id == user_id)
                 .where(DBVote.article_id == click.article_id)
                 .where(DBVote.period == period)
             )
-            existing_vote = result.scalar_one_or_none()
+            if result2.scalar_one_or_none():
+                continue  # already voted
 
-            if not existing_vote:
-                # Get article details
-                result = await session.execute(
-                    select(DBArticle).where(DBArticle.id == click.article_id)
-                )
-                article = result.scalar_one_or_none()
-
-                if article:
-                    pending.append({
+            result3 = await session.execute(
+                select(DBArticle).where(DBArticle.id == click.article_id)
+            )
+            article = result3.scalar_one_or_none()
+            if article:
+                pending.append(
+                    {
                         "article": _format_article(article),
                         "period": period,
                         "read_at": click.clicked_at.isoformat(),
-                    })
+                    }
+                )
 
     return {"pending_votes": pending}
 
 
 # =============================================================================
-# User Stats Routes
+# Stats routes  –  require authentication
 # =============================================================================
 
-@router.get("/users/{user_id}/stats", response_model=UserStatsResponse)
-async def get_user_stats(
-    user_id: str,
+@router.get(
+    "/users/me/stats",
+    response_model=UserStatsResponse,
+    tags=["users"],
+    summary="Get my reading stats and signal score",
+)
+async def get_my_stats(
+    user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ):
-    """Get user's reading statistics and signal score."""
+    """Return the authenticated user's reading statistics and signal score."""
     from sqlalchemy import func
 
-    user = await get_or_create_user(session, user_id)
+    await get_or_create_user(session, user_id)
 
-    # Get signal score
     result = await session.execute(
         select(DBUserSignalScore).where(DBUserSignalScore.user_id == user_id)
     )
-    signal_score_record = result.scalar_one_or_none()
-    signal_score = signal_score_record.correlation_score if signal_score_record else 0.0
+    signal_record = result.scalar_one_or_none()
+    signal_score = signal_record.correlation_score if signal_record else 0.0
 
-    # Count total articles read
     result = await session.execute(
         select(func.count(DBClick.id)).where(DBClick.user_id == user_id)
     )
     total_reads = result.scalar() or 0
 
-    # Count total votes
     result = await session.execute(
         select(func.count(DBVote.id)).where(DBVote.user_id == user_id)
     )
     total_votes = result.scalar() or 0
 
-    # Count votes by period
-    votes_by_period = {}
+    votes_by_period: dict[str, int] = {}
     for period in VotePeriod:
         result = await session.execute(
             select(func.count(DBVote.id))
@@ -554,7 +560,6 @@ async def get_user_stats(
         )
         votes_by_period[period.value] = result.scalar() or 0
 
-    # Get recent reads
     result = await session.execute(
         select(DBClick, DBArticle)
         .join(DBArticle, DBClick.article_id == DBArticle.id)
@@ -562,8 +567,6 @@ async def get_user_stats(
         .order_by(DBClick.clicked_at.desc())
         .limit(10)
     )
-    recent = result.all()
-
     recent_reads = [
         {
             "article_id": click.article_id,
@@ -571,7 +574,7 @@ async def get_user_stats(
             "topic_path": click.topic_path,
             "read_at": click.clicked_at.isoformat(),
         }
-        for click, article in recent
+        for click, article in result.all()
     ]
 
     return UserStatsResponse(
@@ -585,11 +588,44 @@ async def get_user_stats(
 
 
 # =============================================================================
-# Helper Functions
+# Admin routes  –  require X-Admin-API-Key header
+# =============================================================================
+
+@router.post(
+    "/admin/run-ingestion",
+    tags=["admin"],
+    summary="Manually trigger article ingestion",
+    dependencies=[Depends(require_admin)],
+)
+async def admin_run_ingestion():
+    """
+    Manually trigger the daily article ingestion job.
+
+    This was previously a development-only endpoint in main.py.  It is now
+    protected by ``X-Admin-API-Key`` so it can safely be exposed in production
+    for on-demand refreshes.
+    """
+    import asyncio
+    from app.jobs.daily_ingestion import DailyIngestionJob
+
+    # Import lazily to avoid circular imports at module load time
+    from app.api.routes import _database as db
+
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not initialised")
+
+    job = DailyIngestionJob(db)
+    await job.initialize()
+    asyncio.create_task(job.run())
+    return {"message": "Ingestion job started"}
+
+
+# =============================================================================
+# Helper functions
 # =============================================================================
 
 def _format_article(db_article: DBArticle) -> ArticleResponse:
-    """Format a database article for API response."""
+    """Convert a DBArticle row to an ArticleResponse."""
     topic_display = None
     if db_article.topic_path:
         info = get_topic_info(db_article.topic_path)
@@ -626,12 +662,11 @@ async def _check_pending_votes(
     user_id: str,
     article_id: str,
 ) -> Optional[str]:
-    """Check if user has a pending vote for this article."""
+    """Return the earliest pending vote period for this article, or None."""
     from datetime import timedelta
 
     now = datetime.utcnow()
 
-    # Get when user read this article
     result = await session.execute(
         select(DBClick)
         .where(DBClick.user_id == user_id)
@@ -640,22 +675,18 @@ async def _check_pending_votes(
         .limit(1)
     )
     click = result.scalar_one_or_none()
-
     if not click:
         return None
 
     age = now - click.clicked_at
-
-    # Check each period
     periods = [
-        ("1_week", timedelta(days=7)),
+        ("1_week",  timedelta(days=7)),
         ("1_month", timedelta(days=30)),
-        ("1_year", timedelta(days=365)),
+        ("1_year",  timedelta(days=365)),
     ]
 
     for period_name, threshold in periods:
         if age >= threshold:
-            # Check if already voted
             result = await session.execute(
                 select(DBVote)
                 .where(DBVote.user_id == user_id)
